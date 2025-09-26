@@ -248,6 +248,15 @@
       margin-top: 12px;
     }
 
+    .gm-entry.gm-error {
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #fff7ed;
+      border: 1px dashed #fb923c;
+      color: #9a3412;
+      font-size: 0.9rem;
+    }
+
     .gm-entry-title,
     .improvement-entry-title {
       font-weight: 600;
@@ -1572,10 +1581,11 @@
         const chess = new Chess();
         const loaded = loadPgnCompat(chess, pgn, { sloppy: true });
         if (loaded) {
-          return chess.history({ verbose: true }).map(move =>
-            (move?.san || '')
-              .replace(/[+#]/g, '')
-          );
+          const history = chess
+            .history({ verbose: true })
+            .map(move => move?.san || '')
+            .filter(Boolean);
+          return canonicalizeOpeningTokens(history);
         }
       } catch (err) {
         console.warn('Failed to parse PGN via chess.js', err);
@@ -1605,11 +1615,34 @@
         )
         .map(tok => tok.replace(/^0-0$/, 'O-O').replace(/^0-0-0$/, 'O-O-O'));
 
-      return tokens;
+      return canonicalizeOpeningTokens(tokens);
     }
 
     function sanitizeSanSequence(seq = []) {
-      return (seq || []).map((san) => String(san || '').replace(/[+#]/g, ''));
+      return (seq || []).map((san) =>
+        String(san || '')
+          .trim()
+          .replace(/[+#?!]/g, '')
+      );
+    }
+
+    function canonicalizeOpeningTokens(tokens = []) {
+      const sanitized = sanitizeSanSequence(tokens);
+      const chess = new Chess();
+      const cleaned = [];
+      for (const san of sanitized) {
+        if (!san) continue;
+        try {
+          const played = chess.move(san, { sloppy: true });
+          if (!played) break;
+          const canonical = String(played.san || san).replace(/[+#?!]/g, '');
+          cleaned.push(canonical);
+        } catch (err) {
+          console.warn('Unable to apply SAN token', san, err);
+          break;
+        }
+      }
+      return cleaned;
     }
 
     // ------------ MATCHING OUVERTURE ------------
@@ -1905,6 +1938,31 @@
       return null;
     }
 
+    function describeGmError(err) {
+      if (!err) {
+        return {
+          type: 'unknown',
+          message: "Analyse théorie GM indisponible pour le moment.",
+        };
+      }
+      if (err.status === 429) {
+        return {
+          type: 'rateLimit',
+          message: "Trop de requêtes vers Lichess Masters. Réessayez dans quelques instants.",
+        };
+      }
+      if (err.status === 404) {
+        return {
+          type: 'notFound',
+          message: "Référence GM indisponible pour cette ligne.",
+        };
+      }
+      return {
+        type: 'generic',
+        message: err.message || "Analyse théorie GM indisponible.",
+      };
+    }
+
     async function annotateWithGmTheory(openingsObject, {
       playerColor,
       config,
@@ -1927,6 +1985,7 @@
         const tokens = Array.isArray(stats._sampleTokens)
           ? stats._sampleTokens
           : normalizeToTokens(stats._samplePgn).slice(0, 24);
+        delete stats._gmError;
         try {
           const gmHits = await detectGmDeviationsFromPgn({
             pgn: stats._samplePgn,
@@ -2003,9 +2062,13 @@
           }
           if (outOfBook.length) {
             stats._gmOutOfBook = outOfBook;
+          } else {
+            delete stats._gmOutOfBook;
           }
         } catch (err) {
           console.warn('Analyse théorie GM impossible pour', name, err);
+          delete stats._gmOutOfBook;
+          stats._gmError = describeGmError(err);
         }
       }
     }
@@ -2288,7 +2351,13 @@
 
     function renderGmOutOfBook(stats, { orientation, side, mode }) {
       const entries = Array.isArray(stats._gmOutOfBook) ? stats._gmOutOfBook : [];
-      if (!entries.length) return '';
+      const gmError = stats._gmError;
+      if (!entries.length) {
+        if (gmError?.message) {
+          return `<div class="gm-entry gm-error">${escapeHtml(gmError.message)}</div>`;
+        }
+        return '';
+      }
       const ourSide = mode === ANALYSIS_MODES.opponent ? (side === 'white' ? 'black' : 'white') : side;
       const items = entries.slice(0, 3).map((entry) => {
         const moveLabel = `${entry.ply.moveNumber}${entry.ply.color === 'white' ? '.' : '...'} ${escapeHtml(entry.ply.san)}`;
