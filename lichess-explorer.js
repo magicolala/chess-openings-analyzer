@@ -21,6 +21,8 @@ const RATING_BUCKETS = [400, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2500];
 const explorerCache = new Map();
 const masterCache = new Map();
 
+export const LICHESS_MIN_EXPECTED_SCORE = 0.57;
+
 export function pickLichessBucket(rating, { offset = 0 } = {}) {
   const target = Math.max(
     400,
@@ -191,7 +193,7 @@ export async function fetchLichessMasters(fen) {
 }
 
 // Score attendu pour le camp au trait après CHAQUE coup proposé
-export function scoreMoves(data, sideToMove = "white") {
+export function scoreMoves(data, sideToMove = "white", { minExpectedScore = 0 } = {}) {
   if (!data || !Array.isArray(data.moves)) return [];
   return data.moves
     .map((m) => {
@@ -209,6 +211,7 @@ export function scoreMoves(data, sideToMove = "white") {
         raw: m,
       };
     })
+    .filter((entry) => entry.sideExpectedScore >= minExpectedScore)
     .sort((a, b) => b.sideExpectedScore - a.sideExpectedScore || b.total - a.total);
 }
 
@@ -246,7 +249,9 @@ export async function adviseFromLichess({
 
   const data = await fetchExplorer({ fen, uciMoves, speeds, ratings });
   const stm = sideToMove ?? (plies % 2 === 0 ? "white" : "black");
-  const suggestions = scoreMoves(data, stm).slice(0, top);
+  const suggestions = scoreMoves(data, stm, {
+    minExpectedScore: LICHESS_MIN_EXPECTED_SCORE,
+  }).slice(0, top);
 
   return {
     openingName: data?.opening?.name || null,

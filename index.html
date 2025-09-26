@@ -597,6 +597,11 @@
       flex-direction: column;
       gap: .25rem;
     }
+    .lichess-advice-empty {
+      padding: .4rem 0 .6rem;
+      color: #4c51bf;
+      font-style: italic;
+    }
     #boardPreview {
       position: absolute;
       display: none;
@@ -982,6 +987,7 @@
       detectGmDeviationsFromPgn,
       extractPliesFromPgn,
       fetchExplorer,
+      LICHESS_MIN_EXPECTED_SCORE,
       pickLichessBucket,
       scoreMoves,
     } from './lichess-explorer.js';
@@ -2346,7 +2352,20 @@
       const baseTokens = Array.isArray(stats._sampleTokens) ? stats._sampleTokens : [];
       const orientation = resolveOrientationForMode(side, mode);
       const ourSide = orientation;
-      const items = o.suggestions.slice(0, 3).map(s => {
+      const threshold = LICHESS_MIN_EXPECTED_SCORE;
+      const eligibleSuggestions = o.suggestions.filter((s) =>
+        (s?.sideExpectedScore || 0) >= threshold
+      );
+      const thresholdLabel = Math.round(threshold * 100);
+      if (!eligibleSuggestions.length) {
+        return `
+        <details class="lichess-advice">
+          <summary>Coups recommandés (Lichess)${tag}</summary>
+          <div class="lichess-advice-empty">Aucun coup ne dépasse ${thresholdLabel}% de score attendu.</div>
+        </details>
+      `;
+      }
+      const items = eligibleSuggestions.slice(0, 3).map(s => {
         const tokens = sanitizeSanSequence([...baseTokens, s.san].filter(Boolean));
         const { html, info } = buildLinePreview(tokens, { limit: baseTokens.length + 1, orientation });
         const fallbackText = info.line || s.san;
@@ -2688,12 +2707,20 @@
         lines.push('');
         for (const [name, stats] of section.items) {
           lines.push(`### ${name} (${stats.count} parties)`);
-          if (stats._lichess?.suggestions?.length) {
+          const lichessSuggestions = Array.isArray(stats._lichess?.suggestions)
+            ? stats._lichess.suggestions.filter(
+                (sug) => (sug?.sideExpectedScore || 0) >= LICHESS_MIN_EXPECTED_SCORE
+              )
+            : [];
+          if (lichessSuggestions.length) {
             lines.push('**Coups recommandés :**');
-            for (const sug of stats._lichess.suggestions.slice(0, 3)) {
+            for (const sug of lichessSuggestions.slice(0, 3)) {
               const score = Math.round((sug.sideExpectedScore || 0) * 100);
               lines.push(`- ${sug.san} · score ${score}% (${sug.total} parties)`);
             }
+          } else if (stats._lichess?.suggestions?.length) {
+            const thresholdLabel = Math.round(LICHESS_MIN_EXPECTED_SCORE * 100);
+            lines.push(`**Coups recommandés :** Aucun coup ≥ ${thresholdLabel}% de score attendu.`);
           }
           if (Array.isArray(stats._gmOutOfBook) && stats._gmOutOfBook.length) {
             lines.push('**Sorties de théorie GM :**');
