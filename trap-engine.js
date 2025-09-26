@@ -502,6 +502,7 @@ export class TrapEngine {
                 matchedPlies: progressed,
                 advice: trap.advice,
                 openingTags: trap.openingTags || [],
+                seq: trap.seq,
               });
             }
           }

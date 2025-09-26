@@ -301,6 +301,64 @@
     .trap-reco-tip {
       opacity: .85;
     }
+    .line-block {
+      margin-top: 12px;
+    }
+    .line-label {
+      font-weight: 600;
+      color: #444;
+      margin-bottom: 4px;
+    }
+    .line-preview {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: #eef2ff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: .95rem;
+      cursor: pointer;
+      white-space: normal;
+      line-height: 1.5;
+      transition: background .2s, transform .2s;
+    }
+    .line-preview:hover {
+      background: #e0e7ff;
+      transform: translateX(2px);
+    }
+    .line-preview:focus {
+      outline: 2px solid #667eea;
+      outline-offset: 2px;
+    }
+    .line-meta {
+      margin-top: 6px;
+      font-size: .85rem;
+      color: #555;
+    }
+    .observed-traps {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 12px;
+      background: #fff5f5;
+      border: 1px solid #f5c2c7;
+    }
+    .observed-traps-header {
+      font-weight: 700;
+      color: #b10000;
+      margin-bottom: 8px;
+    }
+    .observed-trap + .observed-trap {
+      margin-top: 12px;
+    }
+    .trap-detected-name {
+      font-weight: 600;
+      color: #b10000;
+      margin-bottom: 6px;
+    }
+    .trap-reco-line {
+      margin-top: 6px;
+    }
     .lichess-advice {
       margin-top: .5rem;
       border-left: 3px solid #667eea;
@@ -319,8 +377,34 @@
     }
     .lichess-advice li {
       margin-bottom: .3rem;
+      display: flex;
+      flex-direction: column;
+      gap: .25rem;
+    }
+    #boardPreview {
+      position: absolute;
+      display: none;
+      z-index: 1000;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 15px 45px rgba(0, 0, 0, 0.25);
+      padding: 12px;
+      pointer-events: none;
+      width: 240px;
+    }
+    #boardPreview chess-board {
+      width: 216px;
+      height: 216px;
+    }
+    .board-preview-caption {
+      margin-top: 8px;
+      font-size: .8rem;
+      color: #444;
+      line-height: 1.35;
+      word-break: break-word;
     }
   </style>
+  <script type="module" src="https://cdn.jsdelivr.net/npm/chessboard-element@1/chessboard-element.js"></script>
 </head>
 
 <body>
@@ -360,7 +444,13 @@
     </div>
   </div>
 
+  <div id="boardPreview">
+    <chess-board id="boardPreviewBoard" draggable-pieces="false" style="width:216px;height:216px;"></chess-board>
+    <div class="board-preview-caption" id="boardPreviewCaption"></div>
+  </div>
+
   <script type="module">
+    import { Chess } from 'https://esm.sh/chess.js';
     import { adviseFromLichess, mapSpeed, pickLichessBucket } from './lichess-explorer.js';
     import { registerEcoOpenings } from './eco-pack-xl.js';
     import { TrapEngine, TRAP_PACK } from './trap-engine.js';
@@ -496,6 +586,117 @@
       } catch {
         return 'N/A';
       }
+    }
+
+    function tokensToLineInfo(tokens, { limit = null } = {}) {
+      if (!Array.isArray(tokens) || !tokens.length) {
+        return { line: '', fen: '', moveCount: 0 };
+      }
+
+      const trimmed = limit ? tokens.slice(0, limit) : [...tokens];
+      const chess = new Chess();
+      const parts = [];
+      let moveNumber = 1;
+      let turn = 'white';
+
+      for (const move of trimmed) {
+        if (!move) continue;
+        try {
+          chess.move(move);
+        } catch {
+          break;
+        }
+        if (turn === 'white') {
+          parts.push(`${moveNumber}. ${move}`);
+          turn = 'black';
+        } else {
+          const lastIndex = parts.length - 1;
+          if (lastIndex >= 0) parts[lastIndex] += ` ${move}`;
+          moveNumber++;
+          turn = 'white';
+        }
+      }
+
+      const history = chess.history();
+      const fen = history.length ? chess.fen() : '';
+      const fallback = trimmed.filter(Boolean).join(' ');
+
+      return {
+        line: parts.join(' ') || fallback,
+        fen,
+        moveCount: history.length,
+      };
+    }
+
+    function buildLinePreview(tokens, { limit = null, extraClass = '' } = {}) {
+      const info = tokensToLineInfo(tokens, { limit });
+      if (!info.line) return { html: '', info };
+      const fenAttr = info.fen ? ` data-fen="${escapeHtml(info.fen)}"` : '';
+      const classAttr = extraClass ? ` ${extraClass}` : '';
+      const html = `
+        <button type="button" class="line-preview${classAttr}"${fenAttr} data-line="${escapeHtml(info.line)}">
+          ${escapeHtml(info.line)}
+        </button>
+      `;
+      return { html, info };
+    }
+
+    function renderMainLine(tokens) {
+      if (!tokens || !tokens.length) return '';
+      const { html } = buildLinePreview(tokens, { limit: 14 });
+      if (!html) return '';
+      return `
+        <div class="line-block">
+          <div class="line-label">Ligne principale</div>
+          ${html}
+        </div>
+      `;
+    }
+
+    function renderObservedTraps(traps = []) {
+      if (!Array.isArray(traps) || !traps.length) return '';
+      const seen = new Set();
+      const items = [];
+      for (const trap of traps) {
+        if (!trap?.id || seen.has(trap.id)) continue;
+        seen.add(trap.id);
+        const seq = Array.isArray(trap.seq) ? trap.seq : [];
+        const { html } = buildLinePreview(seq);
+        if (!html) continue;
+        const advice = trap.advice ? `<div class="line-meta">${escapeHtml(trap.advice)}</div>` : '';
+        items.push(`
+          <div class="observed-trap">
+            <div class="trap-detected-name">💥 ${escapeHtml(trap.name)}</div>
+            ${html}
+            ${advice}
+          </div>
+        `);
+      }
+      if (!items.length) return '';
+      return `
+        <div class="observed-traps">
+          <div class="observed-traps-header">Pièges repérés dans vos parties</div>
+          ${items.join('')}
+        </div>
+      `;
+    }
+
+    function renderTrapRecommendations(recs = []) {
+      if (!Array.isArray(recs) || !recs.length) return '';
+      const chunks = recs.map(rec => {
+        const seq = Array.isArray(rec.seq) ? rec.seq : [];
+        const { html } = buildLinePreview(seq, { extraClass: 'trap-reco-line' });
+        if (!html) return '';
+        return `
+          <div class="trap-reco">
+            <div class="trap-reco-name">💣 ${escapeHtml(rec.name)}</div>
+            ${html}
+            <div class="trap-reco-tip">💡 ${escapeHtml(rec.advice)}</div>
+          </div>
+        `;
+      }).filter(Boolean);
+      if (!chunks.length) return '';
+      return `<div class="trap-recos">${chunks.join('')}</div>`;
     }
 
     function withTimeout(ms, signal) {
@@ -718,13 +919,28 @@
     }
 
     // ------------ UI ------------
-    function renderLichessAdvice(stats, youAreWhite) {
+    function renderLichessAdvice(stats) {
       if (!stats._lichess?.suggestions?.length) return '';
       const o = stats._lichess;
       const tag = o.openingName ? ` (${o.openingName}${o.eco ? ' – ' + o.eco : ''})` : '';
-      const items = o.suggestions.slice(0, 3).map(s =>
-        `<li><code>${s.san}</code> — score attendu ${Math.round(s.sideExpectedScore * 100)}% · ${s.total} parties</li>`
-      ).join('');
+      const baseTokens = Array.isArray(stats._sampleTokens) ? stats._sampleTokens : [];
+      const items = o.suggestions.slice(0, 3).map(s => {
+        const tokens = [...baseTokens, s.san].filter(Boolean);
+        const { html, info } = buildLinePreview(tokens, { limit: baseTokens.length + 1 });
+        const fallbackText = info.line || s.san;
+        const button = html || `
+          <button type="button" class="line-preview" data-line="${escapeHtml(fallbackText)}">
+            ${escapeHtml(fallbackText)}
+          </button>
+        `;
+        const score = Math.round((s.sideExpectedScore || 0) * 100);
+        return `
+          <li>
+            ${button}
+            <div class="line-meta">Score attendu ${score}% · ${s.total} parties</div>
+          </li>
+        `;
+      }).join('');
       return `
         <details class="lichess-advice">
           <summary>Coups recommandés (Lichess)${tag}</summary>
@@ -754,7 +970,7 @@
       playerInfoDiv.style.display = 'block';
     }
 
-    function formatOpeningRow(name, stats) {
+    function formatOpeningRow(name, stats, extraHtml = '') {
       const winRate = stats.count ? ((stats.wins / stats.count) * 100).toFixed(1) : '0.0';
       const drawRate = stats.count ? ((stats.draws / stats.count) * 100).toFixed(1) : '0.0';
       const lossRate = stats.count ? ((stats.losses / stats.count) * 100).toFixed(1) : '0.0';
@@ -775,8 +991,27 @@
                 <div class="progress-draw" style="width:${drawRate}%"></div>
                 <div class="progress-loss" style="width:${lossRate}%"></div>
               </div>
+              ${extraHtml}
             </div>
           `;
+    }
+
+    function buildOpeningSections(name, stats, side) {
+      const sections = [];
+      const mainLine = renderMainLine(stats._sampleTokens || []);
+      if (mainLine) sections.push(mainLine);
+
+      const observed = renderObservedTraps(stats.traps || []);
+      if (observed) sections.push(observed);
+
+      const recs = trapEngine.recommendByOpening(name, side, 3);
+      const recsHtml = renderTrapRecommendations(recs);
+      if (recsHtml) sections.push(recsHtml);
+
+      const lichessHtml = renderLichessAdvice(stats);
+      if (lichessHtml) sections.push(lichessHtml);
+
+      return sections.join('');
     }
 
     function displayOpenings(whiteOpenings, blackOpenings) {
@@ -788,51 +1023,15 @@
 
       whiteDiv.innerHTML = sortedWhite.length
         ? sortedWhite.slice(0, 10).map(([name, stats]) => {
-          let html = formatOpeningRow(name, stats);
-          const lichessHtml = renderLichessAdvice(stats, true);
-          const recs = trapEngine.recommendByOpening(name, 'white', 3);
-          let bottomHtml = '';
-          if (recs.length) {
-            bottomHtml += `
-<div class="trap-recos">
-  ${recs.map(r => `
-    <div class="trap-reco">
-      <div class="trap-reco-name">💣 ${escapeHtml(r.name)}</div>
-      <div class="trap-reco-seq">${escapeHtml(r.seq.join(' '))}</div>
-      <div class="trap-reco-tip">💡 ${escapeHtml(r.advice)}</div>
-    </div>
-  `).join('')}
-</div>
-`;
-          }
-          bottomHtml += lichessHtml;
-          html = html.slice(0, -6) + bottomHtml + '</div>';
-          return html;
+          const sections = buildOpeningSections(name, stats, 'white');
+          return formatOpeningRow(name, stats, sections);
         }).join('')
         : '<div class="no-data">Aucune donnée disponible</div>';
 
       blackDiv.innerHTML = sortedBlack.length
         ? sortedBlack.slice(0, 10).map(([name, stats]) => {
-          let html = formatOpeningRow(name, stats);
-          const lichessHtml = renderLichessAdvice(stats, false);
-          const recs = trapEngine.recommendByOpening(name, 'black', 3);
-          let bottomHtml = '';
-          if (recs.length) {
-            bottomHtml += `
-<div class="trap-recos">
-  ${recs.map(r => `
-    <div class="trap-reco">
-      <div class="trap-reco-name">💣 ${escapeHtml(r.name)}</div>
-      <div class="trap-reco-seq">${escapeHtml(r.seq.join(' '))}</div>
-      <div class="trap-reco-tip">💡 ${escapeHtml(r.advice)}</div>
-    </div>
-  `).join('')}
-</div>
-`;
-          }
-          bottomHtml += lichessHtml;
-          html = html.slice(0, -6) + bottomHtml + '</div>';
-          return html;
+          const sections = buildOpeningSections(name, stats, 'black');
+          return formatOpeningRow(name, stats, sections);
         }).join('')
         : '<div class="no-data">Aucune donnée disponible</div>';
 
@@ -856,7 +1055,105 @@
     function hideResults() {
       document.getElementById('playerInfo').style.display = 'none';
       document.getElementById('openingsSection').style.display = 'none';
+      pinnedAnchor = null;
+      hideBoardPreview();
     }
+
+    // ------------ BOARD PREVIEW ------------
+    const boardPreview = document.getElementById('boardPreview');
+    const boardPreviewBoard = document.getElementById('boardPreviewBoard');
+    const boardPreviewCaption = document.getElementById('boardPreviewCaption');
+    let pinnedAnchor = null;
+
+    function positionBoardPreview(anchor) {
+      const rect = anchor.getBoundingClientRect();
+      const boardWidth = boardPreview.offsetWidth || 240;
+      const boardHeight = boardPreview.offsetHeight || 260;
+      let left = window.scrollX + rect.right + 12;
+      let top = window.scrollY + rect.top;
+
+      const viewportRight = window.scrollX + window.innerWidth;
+      if (left + boardWidth > viewportRight - 16) {
+        left = window.scrollX + rect.left - boardWidth - 12;
+      }
+      if (left < window.scrollX + 12) left = window.scrollX + 12;
+
+      const viewportBottom = window.scrollY + window.innerHeight;
+      if (top + boardHeight > viewportBottom - 16) {
+        top = viewportBottom - boardHeight - 16;
+      }
+      if (top < window.scrollY + 12) top = window.scrollY + 12;
+
+      boardPreview.style.left = `${left}px`;
+      boardPreview.style.top = `${top}px`;
+    }
+
+    function showBoardPreview(anchor) {
+      if (!anchor) return;
+      const fen = anchor.dataset.fen || '';
+      const line = anchor.dataset.line || '';
+      if (fen) {
+        boardPreviewBoard.setAttribute('position', fen);
+      } else {
+        boardPreviewBoard.removeAttribute('position');
+      }
+      boardPreviewCaption.textContent = line;
+      boardPreview.style.display = 'block';
+      positionBoardPreview(anchor);
+    }
+
+    function hideBoardPreview() {
+      boardPreview.style.display = 'none';
+    }
+
+    document.body.addEventListener('mouseover', event => {
+      const anchor = event.target.closest('.line-preview');
+      if (!anchor) {
+        if (!pinnedAnchor) hideBoardPreview();
+        return;
+      }
+      if (pinnedAnchor) return;
+      showBoardPreview(anchor);
+    });
+
+    document.body.addEventListener('click', event => {
+      const anchor = event.target.closest('.line-preview');
+      if (anchor) {
+        if (pinnedAnchor === anchor) {
+          pinnedAnchor = null;
+          hideBoardPreview();
+        } else {
+          pinnedAnchor = anchor;
+          showBoardPreview(anchor);
+        }
+      } else if (!event.target.closest('#boardPreview')) {
+        pinnedAnchor = null;
+        hideBoardPreview();
+      }
+    });
+
+    document.body.addEventListener('focusin', event => {
+      const anchor = event.target.closest('.line-preview');
+      if (anchor) {
+        pinnedAnchor = anchor;
+        showBoardPreview(anchor);
+      } else if (!event.target.closest('#boardPreview')) {
+        pinnedAnchor = null;
+        hideBoardPreview();
+      }
+    });
+
+    window.addEventListener('scroll', () => {
+      if (pinnedAnchor && boardPreview.style.display === 'block') {
+        positionBoardPreview(pinnedAnchor);
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      if (pinnedAnchor && boardPreview.style.display === 'block') {
+        positionBoardPreview(pinnedAnchor);
+      }
+    });
 
     // ------------ EVENTS ------------
     document.getElementById('username').addEventListener('keydown', e => {
