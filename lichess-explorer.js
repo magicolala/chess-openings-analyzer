@@ -2,6 +2,18 @@
 // npm i chess.js  (ou <script type="module" src="https://cdn.jsdelivr.net/npm/chess.js@1/dist/chess.min.js">)
 import { Chess } from "https://esm.sh/chess.js";
 
+function loadPgnCompat(chessInstance, pgn, options) {
+  const loader = typeof chessInstance.loadPgn === "function"
+    ? chessInstance.loadPgn
+    : typeof chessInstance.load_pgn === "function"
+      ? chessInstance.load_pgn
+      : null;
+  if (!loader) {
+    throw new Error("No loadPgn function available on chess.js instance");
+  }
+  return loader.call(chessInstance, pgn, options);
+}
+
 const BASE = "https://explorer.lichess.ovh/lichess";
 const RATING_BUCKETS = [400, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2500];
 
@@ -41,7 +53,7 @@ export function mapSpeed(chesscomCategory) {
 // PGN -> FEN + UCI des N premiers demi-coups (robuste, pas tes SAN amputés)
 export function pgnToFenAndUci(pgn, limitPlies = 20) {
   const c = new Chess();
-  c.load_pgn(String(pgn || ""), { sloppy: true });
+  loadPgnCompat(c, String(pgn || ""), { sloppy: true });
   const hist = c.history({ verbose: true });
   const c2 = new Chess();
   for (let i = 0; i < Math.min(hist.length, limitPlies); i++) c2.move(hist[i]);
