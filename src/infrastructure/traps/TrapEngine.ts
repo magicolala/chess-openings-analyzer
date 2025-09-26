@@ -1,4 +1,5 @@
-// trap-engine.js
+// @ts-nocheck
+// trap-engine.ts
 // Moteur de détection de pièges : trie SAN + recos par famille d’ouverture.
 
 function normalizeToTokens(pgn) {

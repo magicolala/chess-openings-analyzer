@@ -1,4 +1,5 @@
-// eco-pack-xl.js
+// @ts-nocheck
+// eco-pack-xl.ts
 // Pack XL d’ouvertures ECO + répertoire de pièges courants.
 // Format: séquences SAN tokenisées (sans 'x', '+', '#', '=Q', roques 'O-O').
 // Intégration :

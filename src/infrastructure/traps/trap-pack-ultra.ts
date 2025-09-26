@@ -1,4 +1,5 @@
-// trap-pack-ultra.js
+// @ts-nocheck
+// trap-pack-ultra.ts
 // Pack ultra de pièges additionnels. SAN normalisée: pas de 'x', ni '+/#', promotions retirées, roques 'O-O'.
 // Idées: détection courte mais pertinente; tags d’ouverture pour recos contextuelles.
 
