@@ -1575,8 +1575,17 @@
       return loader.call(chessInstance, pgn, options);
     }
 
+    const DEFAULT_START_FEN = new Chess().fen();
+    const BLACK_START_FEN = DEFAULT_START_FEN.replace(' w ', ' b ');
+
     function normalizeToTokens(pgn) {
       if (!pgn || typeof pgn !== 'string') return [];
+
+      const trimmed = pgn.trim();
+      const startsWithBlack =
+        /^\s*\d+\s*\.\.\./.test(trimmed) ||
+        /^\s*\.\.\./.test(trimmed);
+      const initialTurn = startsWithBlack ? 'black' : 'white';
 
       try {
         const chess = new Chess();
@@ -1586,7 +1595,7 @@
             .history({ verbose: true })
             .map(move => move?.san || '')
             .filter(Boolean);
-          return canonicalizeOpeningTokens(history);
+          return canonicalizeOpeningTokens(history, 'white');
         }
       } catch (err) {
         console.warn('Failed to parse PGN via chess.js', err);
@@ -1616,7 +1625,7 @@
         )
         .map(tok => tok.replace(/^0-0$/, 'O-O').replace(/^0-0-0$/, 'O-O-O'));
 
-      return canonicalizeOpeningTokens(tokens);
+      return canonicalizeOpeningTokens(tokens, initialTurn);
     }
 
     function sanitizeSanSequence(seq = []) {
@@ -1627,11 +1636,17 @@
       );
     }
 
-    function canonicalizeOpeningTokens(tokens = []) {
+    function canonicalizeOpeningTokens(tokens = [], startTurn = 'white', triedBlackFallback = false) {
       const sanitized = sanitizeSanSequence(tokens);
       const chess = new Chess();
+      if (startTurn === 'black') {
+        if (!chess.load(BLACK_START_FEN)) {
+          chess.reset();
+        }
+      }
       const cleaned = [];
       let warned = false;
+      let sawLeadingInvalid = false;
       for (const san of sanitized) {
         if (!san) continue;
         let played;
@@ -1639,7 +1654,7 @@
           played = chess.move(san, { sloppy: true });
         } catch (err) {
           if (!cleaned.length) {
-            // Certains PGN tronqués commencent côté noir : on ignore le coup invalide et on poursuit.
+            sawLeadingInvalid = true;
             continue;
           }
           if (!warned) {
@@ -1650,6 +1665,7 @@
         }
         if (!played) {
           if (!cleaned.length) {
+            sawLeadingInvalid = true;
             continue;
           }
           if (!warned) {
@@ -1660,6 +1676,10 @@
         }
         const canonical = String(played.san || san).replace(/[+#?!]/g, '');
         cleaned.push(canonical);
+      }
+      if (!cleaned.length && startTurn === 'white' && sawLeadingInvalid && !triedBlackFallback) {
+        // Certains PGN tronqués commencent directement par un coup noir ("1... e5").
+        return canonicalizeOpeningTokens(sanitized, 'black', true);
       }
       return cleaned;
     }
