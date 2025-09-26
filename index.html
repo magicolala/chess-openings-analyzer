@@ -1395,6 +1395,18 @@
       config: null,
     };
 
+    function normalizeSide(side) {
+      return side === 'black' ? 'black' : 'white';
+    }
+
+    function resolveOrientationForMode(side, mode = state.mode) {
+      const normalized = normalizeSide(side);
+      if (mode === ANALYSIS_MODES.opponent) {
+        return normalized === 'white' ? 'black' : 'white';
+      }
+      return normalized;
+    }
+
     // ------------ FALLBACK 1er COUP ------------
     const FIRST_MOVE_FALLBACK = new Map([
       ['e4', 'Ouvertures ouvertes (1.e4)'],
@@ -2327,12 +2339,13 @@
     }
 
     // ------------ UI ------------
-    function renderLichessAdvice(stats, { orientation = 'white', side = 'white', mode = state.mode } = {}) {
+    function renderLichessAdvice(stats, { side = 'white', mode = state.mode } = {}) {
       if (!stats._lichess?.suggestions?.length) return '';
       const o = stats._lichess;
       const tag = o.openingName ? ` (${o.openingName}${o.eco ? ' – ' + o.eco : ''})` : '';
       const baseTokens = Array.isArray(stats._sampleTokens) ? stats._sampleTokens : [];
-      const ourSide = mode === ANALYSIS_MODES.opponent ? (side === 'white' ? 'black' : 'white') : side;
+      const orientation = resolveOrientationForMode(side, mode);
+      const ourSide = orientation;
       const items = o.suggestions.slice(0, 3).map(s => {
         const tokens = sanitizeSanSequence([...baseTokens, s.san].filter(Boolean));
         const { html, info } = buildLinePreview(tokens, { limit: baseTokens.length + 1, orientation });
@@ -2389,7 +2402,7 @@
       `;
     }
 
-    function renderGmOutOfBook(stats, { orientation, side, mode }) {
+    function renderGmOutOfBook(stats, { side, mode } = {}) {
       const entries = Array.isArray(stats._gmOutOfBook) ? stats._gmOutOfBook : [];
       const gmError = stats._gmError;
       if (!entries.length) {
@@ -2398,7 +2411,8 @@
         }
         return '';
       }
-      const ourSide = mode === ANALYSIS_MODES.opponent ? (side === 'white' ? 'black' : 'white') : side;
+      const orientation = resolveOrientationForMode(side, mode);
+      const ourSide = orientation;
       const items = entries.slice(0, 3).map((entry) => {
         const moveLabel = `${entry.ply.moveNumber}${entry.ply.color === 'white' ? '.' : '...'} ${escapeHtml(entry.ply.san)}`;
         const coverage = entry.evaluation?.coverage != null
@@ -2420,7 +2434,7 @@
               : []),
         ]);
         const preview = tokens.length
-          ? buildPreviewButton(tokens, { orientation: ourSide === 'black' ? 'black' : 'white' })
+          ? buildPreviewButton(tokens, { orientation })
           : '';
         const totalVolume = entry.evaluation?.total || 0;
         const gmMoves = totalVolume && Array.isArray(entry.evaluation?.pickedMoves)
@@ -2452,9 +2466,10 @@
       `;
     }
 
-    function renderImprovements(stats, { orientation, side }) {
+    function renderImprovements(stats, { side, mode = state.mode } = {}) {
       const entries = Array.isArray(stats._improvements) ? stats._improvements : [];
       if (!entries.length) return '';
+      const orientation = resolveOrientationForMode(side, mode);
       const items = entries.map((entry) => {
         const moveLabel = `${entry.ply.moveNumber}${entry.ply.color === 'white' ? '.' : '...'} ${escapeHtml(entry.ply.san)}`;
         const recommendedSan = entry.recommendation?.san || (Array.isArray(entry.recommendation?.pvSan) ? entry.recommendation.pvSan[0] : '');
@@ -2527,9 +2542,7 @@
       const badgesHtml = badges.length ? ` ${badges.join(' ')}` : '';
       const labelHtml = `${stats.isTrap ? `<span class="trap-name">${safeName}</span>` : safeName}${badgesHtml}`;
       const { line: mainLineText, moves: mainMoves } = tokensToLineInfo(stats._sampleTokens || [], { limit: 30 });
-      const orientation = mode === ANALYSIS_MODES.opponent
-        ? side === 'white' ? 'black' : 'white'
-        : side === 'black' ? 'black' : 'white';
+      const orientation = resolveOrientationForMode(side, mode);
       const dataMainMoves = mainMoves?.length
         ? ` data-main-moves="${escapeHtml(mainMoves.join('|'))}"`
         : '';
@@ -2560,9 +2573,7 @@
 
     function buildOpeningSections(name, stats, side, mode = state.mode) {
       const sections = [];
-      const orientation = mode === ANALYSIS_MODES.opponent
-        ? side === 'white' ? 'black' : 'white'
-        : side === 'black' ? 'black' : 'white';
+      const orientation = resolveOrientationForMode(side, mode);
       const mainLine = renderMainLine(stats._sampleTokens || [], orientation);
       if (mainLine) sections.push(mainLine);
 
@@ -2573,14 +2584,14 @@
       const recsHtml = renderTrapRecommendations(recs, orientation);
       if (recsHtml) sections.push(recsHtml);
 
-      const lichessHtml = renderLichessAdvice(stats, { orientation, side, mode });
+      const lichessHtml = renderLichessAdvice(stats, { side, mode });
       if (lichessHtml) sections.push(lichessHtml);
 
-      const gmHtml = renderGmOutOfBook(stats, { orientation, side, mode });
+      const gmHtml = renderGmOutOfBook(stats, { side, mode });
       if (gmHtml) sections.push(gmHtml);
 
       if (mode === ANALYSIS_MODES.self) {
-        const improvementHtml = renderImprovements(stats, { orientation, side });
+        const improvementHtml = renderImprovements(stats, { side, mode });
         if (improvementHtml) sections.push(improvementHtml);
       }
 
