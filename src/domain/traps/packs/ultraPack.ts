@@ -1,9 +1,6 @@
-// @ts-nocheck
-// trap-pack-ultra.ts
-// Pack ultra de pièges additionnels. SAN normalisée: pas de 'x', ni '+/#', promotions retirées, roques 'O-O'.
-// Idées: détection courte mais pertinente; tags d’ouverture pour recos contextuelles.
+import { Trap } from '../Trap';
 
-export const ULTRA_TRAPS = [
+export const ultraPack = [
   // =================== BIRD / FROM / HOBBS / POLAR ===================
   {
     id: "bird-larsen-sneak",
@@ -776,8 +773,4 @@ export const ULTRA_TRAPS = [
     advice:
       "h5–Ng4 pour coller hxg4/HQh4 idées. Gimmick de blitz, oui, mais meurtrier.",
   },
-];
-
-export function registerUltraTraps(engine) {
-  engine.register(ULTRA_TRAPS);
-}
+] as const satisfies readonly Trap[];

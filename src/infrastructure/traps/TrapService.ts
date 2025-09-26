@@ -1,27 +1,32 @@
-import { TrapEngine, TRAP_PACK } from './TrapEngine';
-import { ULTRA_TRAPS } from './trap-pack-ultra';
+import { TrapMatchOptions, TrapMatchResult, TrapEngine } from '../../domain/traps/TrapEngine';
+import { TrapRecommendation, TrapSide } from '../../domain/traps/Trap';
+import { ITrapService } from '../../domain/traps/ITrapService';
+import { ITrapRepository, TrapRepository } from './TrapRepository';
 
-export class TrapService {
+export class TrapService implements ITrapService {
   private readonly engine: TrapEngine;
 
-  constructor(engine: TrapEngine = new TrapEngine()) {
+  constructor(engine: TrapEngine) {
     this.engine = engine;
-    this.registerDefaults();
   }
 
-  registerDefaults(): void {
-    this.engine.register([...TRAP_PACK, ...ULTRA_TRAPS]);
+  static fromRepository(repository: ITrapRepository = new TrapRepository()): TrapService {
+    return new TrapService(repository.createEngine());
   }
 
-  matchPgn(pgn: string, options?: Record<string, unknown>) {
+  matchPgn(pgn: string, options?: TrapMatchOptions): TrapMatchResult {
     return this.engine.matchPgn(pgn, options);
   }
 
-  matchTokens(tokens: string[], options?: Record<string, unknown>) {
+  matchTokens(tokens: readonly string[], options?: TrapMatchOptions): TrapMatchResult {
     return this.engine.matchTokens(tokens, options);
   }
 
-  recommendByOpening(openingName: string, side: 'white' | 'black', limit = 3) {
+  recommendByOpening(
+    openingName: string,
+    side: TrapSide,
+    limit = 3,
+  ): readonly TrapRecommendation[] {
     return this.engine.recommendByOpening(openingName, side, limit);
   }
 }
