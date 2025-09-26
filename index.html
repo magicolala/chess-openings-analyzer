@@ -407,6 +407,181 @@
       line-height: 1.35;
       word-break: break-word;
     }
+    .line-modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(15, 23, 42, 0.55);
+      z-index: 2000;
+    }
+    .line-modal.is-open {
+      display: flex;
+    }
+    body.modal-open {
+      overflow: hidden;
+    }
+    .line-modal-dialog {
+      background: #fff;
+      border-radius: 18px;
+      width: min(900px, 100%);
+      max-height: 90vh;
+      box-shadow: 0 25px 70px rgba(15, 23, 42, 0.35);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .line-modal-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .line-modal-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #1f2937;
+    }
+    .line-modal-close {
+      background: none;
+      border: none;
+      font-size: 1.6rem;
+      line-height: 1;
+      cursor: pointer;
+      color: #6b7280;
+      padding: 4px;
+      border-radius: 6px;
+      transition: background .2s, color .2s;
+    }
+    .line-modal-close:hover {
+      background: rgba(102, 126, 234, 0.12);
+      color: #4c51bf;
+    }
+    .line-modal-content {
+      display: flex;
+      gap: 24px;
+      padding: 24px;
+      flex-wrap: wrap;
+      overflow-y: auto;
+    }
+    .line-modal-board {
+      flex: none;
+      width: min(360px, 100%);
+      aspect-ratio: 1;
+      border-radius: 16px;
+      box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.12);
+      overflow: hidden;
+    }
+    .line-modal-sidebar {
+      flex: 1;
+      min-width: min(320px, 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .line-modal-subtitle {
+      color: #4b5563;
+      font-size: .95rem;
+      line-height: 1.4;
+    }
+    .line-modal-controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .line-modal-controls button {
+      flex: none;
+      min-width: 48px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: none;
+      background: #eef2ff;
+      color: #3730a3;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s, transform .2s;
+    }
+    .line-modal-controls button:hover {
+      background: #e0e7ff;
+      transform: translateY(-1px);
+    }
+    .line-modal-controls button:disabled {
+      opacity: .6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .line-modal-moves {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .move-chip {
+      border: none;
+      border-radius: 999px;
+      padding: 8px 14px;
+      background: #f3f4f6;
+      color: #1f2937;
+      font-size: .9rem;
+      cursor: pointer;
+      transition: background .2s, color .2s, transform .2s;
+    }
+    .move-chip:hover {
+      background: #e0e7ff;
+      color: #3730a3;
+      transform: translateY(-1px);
+    }
+    .move-chip.is-active {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.35);
+    }
+    .move-chip.is-past:not(.is-active) {
+      background: #e0e7ff;
+      color: #4338ca;
+    }
+    .line-modal-footer {
+      padding: 0 24px 24px;
+    }
+    .line-modal-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      text-decoration: none;
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-weight: 600;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .line-modal-link:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 24px rgba(102, 126, 234, 0.35);
+    }
+    @media (max-width: 640px) {
+      .line-modal-dialog {
+        max-height: none;
+        height: 100%;
+        border-radius: 0;
+      }
+      .line-modal-content {
+        flex-direction: column;
+        padding: 20px;
+      }
+      .line-modal-board {
+        width: 100%;
+      }
+      .line-modal-sidebar {
+        min-width: 100%;
+      }
+    }
   </style>
 </head>
 
@@ -454,6 +629,52 @@
       aria-hidden="true"
     ></div>
     <div class="board-preview-caption" id="boardPreviewCaption"></div>
+  </div>
+
+  <div
+    id="lineModal"
+    class="line-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-hidden="true"
+  >
+    <div class="line-modal-dialog">
+      <div class="line-modal-header">
+        <div class="line-modal-title" id="lineModalTitle">Séquence</div>
+        <button
+          type="button"
+          class="line-modal-close"
+          id="lineModalClose"
+          aria-label="Fermer"
+        >
+          ×
+        </button>
+      </div>
+      <div class="line-modal-content">
+        <div class="line-modal-board" id="lineModalBoard" aria-hidden="false"></div>
+        <div class="line-modal-sidebar">
+          <div class="line-modal-subtitle" id="lineModalSummary"></div>
+          <div class="line-modal-controls">
+            <button type="button" id="lineModalStart">⏮ Début</button>
+            <button type="button" id="lineModalPrev">◀️ Précédent</button>
+            <button type="button" id="lineModalNext">▶️ Suivant</button>
+            <button type="button" id="lineModalEnd">⏭ Fin</button>
+          </div>
+          <div class="line-modal-moves" id="lineModalMoves"></div>
+        </div>
+      </div>
+      <div class="line-modal-footer">
+        <a
+          href="https://lichess.org/analysis"
+          target="_blank"
+          rel="noopener"
+          id="lineModalLichess"
+          class="line-modal-link"
+        >
+          ↗ Voir la position sur Lichess
+        </a>
+      </div>
+    </div>
   </div>
 
   <script type="module">
@@ -602,7 +823,7 @@
 
     function tokensToLineInfo(tokens, { limit = null } = {}) {
       if (!Array.isArray(tokens) || !tokens.length) {
-        return { line: '', fen: '', moveCount: 0 };
+        return { line: '', fen: '', moveCount: 0, moves: [] };
       }
 
       const trimmed = limit ? tokens.slice(0, limit) : [...tokens];
@@ -610,11 +831,13 @@
       const parts = [];
       let moveNumber = 1;
       let turn = 'white';
+      const applied = [];
 
       for (const move of trimmed) {
         if (!move) continue;
         try {
           chess.move(move);
+          applied.push(move);
         } catch {
           break;
         }
@@ -631,31 +854,38 @@
 
       const history = chess.history();
       const fen = history.length ? chess.fen() : '';
-      const fallback = trimmed.filter(Boolean).join(' ');
+      const fallback = applied.length
+        ? applied.join(' ')
+        : trimmed.filter(Boolean).join(' ');
 
       return {
         line: parts.join(' ') || fallback,
         fen,
         moveCount: history.length,
+        moves: applied,
       };
     }
 
-    function buildLinePreview(tokens, { limit = null, extraClass = '' } = {}) {
+    function buildLinePreview(tokens, { limit = null, extraClass = '', orientation = 'white' } = {}) {
       const info = tokensToLineInfo(tokens, { limit });
       if (!info.line) return { html: '', info };
       const fenAttr = info.fen ? ` data-fen="${escapeHtml(info.fen)}"` : '';
+      const movesAttr = info.moves?.length
+        ? ` data-moves="${escapeHtml(info.moves.join('|'))}"`
+        : '';
       const classAttr = extraClass ? ` ${extraClass}` : '';
+      const orientationAttr = orientation ? ` data-orientation="${orientation}"` : '';
       const html = `
-        <button type="button" class="line-preview${classAttr}"${fenAttr} data-line="${escapeHtml(info.line)}">
+        <button type="button" class="line-preview${classAttr}"${fenAttr}${movesAttr}${orientationAttr} data-line="${escapeHtml(info.line)}">
           ${escapeHtml(info.line)}
         </button>
       `;
       return { html, info };
     }
 
-    function renderMainLine(tokens) {
+    function renderMainLine(tokens, orientation = 'white') {
       if (!tokens || !tokens.length) return '';
-      const { html } = buildLinePreview(tokens, { limit: 14 });
+      const { html } = buildLinePreview(tokens, { limit: 14, orientation });
       if (!html) return '';
       return `
         <div class="line-block">
@@ -665,7 +895,7 @@
       `;
     }
 
-    function renderObservedTraps(traps = []) {
+    function renderObservedTraps(traps = [], orientation = 'white') {
       if (!Array.isArray(traps) || !traps.length) return '';
       const seen = new Set();
       const items = [];
@@ -673,7 +903,7 @@
         if (!trap?.id || seen.has(trap.id)) continue;
         seen.add(trap.id);
         const seq = Array.isArray(trap.seq) ? trap.seq : [];
-        const { html } = buildLinePreview(seq);
+        const { html } = buildLinePreview(seq, { orientation });
         if (!html) continue;
         const advice = trap.advice ? `<div class="line-meta">${escapeHtml(trap.advice)}</div>` : '';
         items.push(`
@@ -693,11 +923,11 @@
       `;
     }
 
-    function renderTrapRecommendations(recs = []) {
+    function renderTrapRecommendations(recs = [], orientation = 'white') {
       if (!Array.isArray(recs) || !recs.length) return '';
       const chunks = recs.map(rec => {
         const seq = Array.isArray(rec.seq) ? rec.seq : [];
-        const { html } = buildLinePreview(seq, { extraClass: 'trap-reco-line' });
+        const { html } = buildLinePreview(seq, { extraClass: 'trap-reco-line', orientation });
         if (!html) return '';
         return `
           <div class="trap-reco">
@@ -956,17 +1186,24 @@
     }
 
     // ------------ UI ------------
-    function renderLichessAdvice(stats) {
+    function renderLichessAdvice(stats, orientation = 'white') {
       if (!stats._lichess?.suggestions?.length) return '';
       const o = stats._lichess;
       const tag = o.openingName ? ` (${o.openingName}${o.eco ? ' – ' + o.eco : ''})` : '';
       const baseTokens = Array.isArray(stats._sampleTokens) ? stats._sampleTokens : [];
       const items = o.suggestions.slice(0, 3).map(s => {
         const tokens = [...baseTokens, s.san].filter(Boolean);
-        const { html, info } = buildLinePreview(tokens, { limit: baseTokens.length + 1 });
+        const { html, info } = buildLinePreview(tokens, { limit: baseTokens.length + 1, orientation });
         const fallbackText = info.line || s.san;
         const button = html || `
-          <button type="button" class="line-preview" data-line="${escapeHtml(fallbackText)}">
+          <button
+            type="button"
+            class="line-preview"
+            data-line="${escapeHtml(fallbackText)}"
+            data-orientation="${orientation}"
+            ${info.moves?.length ? `data-moves="${escapeHtml(info.moves.join('|'))}"` : ''}
+            ${info.fen ? `data-fen="${escapeHtml(info.fen)}"` : ''}
+          >
             ${escapeHtml(fallbackText)}
           </button>
         `;
@@ -1007,15 +1244,25 @@
       playerInfoDiv.style.display = 'block';
     }
 
-    function formatOpeningRow(name, stats, extraHtml = '') {
+    function formatOpeningRow(name, stats, extraHtml = '', side = 'white') {
       const winRate = stats.count ? ((stats.wins / stats.count) * 100).toFixed(1) : '0.0';
       const drawRate = stats.count ? ((stats.draws / stats.count) * 100).toFixed(1) : '0.0';
       const lossRate = stats.count ? ((stats.losses / stats.count) * 100).toFixed(1) : '0.0';
       const safeName = escapeHtml(name);
       const labelHtml = stats.isTrap ? `<span class="trap-name">${safeName}</span>` : safeName;
+      const { line: mainLineText, moves: mainMoves } = tokensToLineInfo(stats._sampleTokens || [], { limit: 30 });
+      const orientation = side === 'black' ? 'black' : 'white';
+      const dataMainMoves = mainMoves?.length
+        ? ` data-main-moves="${escapeHtml(mainMoves.join('|'))}"`
+        : '';
+      const dataMainLine = mainLineText
+        ? ` data-main-line="${escapeHtml(mainLineText)}"`
+        : '';
+      const dataOrientation = ` data-orientation="${orientation}"`;
+      const dataName = ` data-opening-name="${escapeHtml(name)}"`;
 
       return `
-            <div class="opening-item">
+            <div class="opening-item"${dataMainMoves}${dataMainLine}${dataOrientation}${dataName}>
               <div class="opening-name">${labelHtml}</div>
               <div class="opening-stats">
                 <span class="opening-stat">📊 ${stats.count} parties</span>
@@ -1035,17 +1282,18 @@
 
     function buildOpeningSections(name, stats, side) {
       const sections = [];
-      const mainLine = renderMainLine(stats._sampleTokens || []);
+      const orientation = side === 'black' ? 'black' : 'white';
+      const mainLine = renderMainLine(stats._sampleTokens || [], orientation);
       if (mainLine) sections.push(mainLine);
 
-      const observed = renderObservedTraps(stats.traps || []);
+      const observed = renderObservedTraps(stats.traps || [], orientation);
       if (observed) sections.push(observed);
 
       const recs = trapEngine.recommendByOpening(name, side, 3);
-      const recsHtml = renderTrapRecommendations(recs);
+      const recsHtml = renderTrapRecommendations(recs, orientation);
       if (recsHtml) sections.push(recsHtml);
 
-      const lichessHtml = renderLichessAdvice(stats);
+      const lichessHtml = renderLichessAdvice(stats, orientation);
       if (lichessHtml) sections.push(lichessHtml);
 
       return sections.join('');
@@ -1061,14 +1309,14 @@
       whiteDiv.innerHTML = sortedWhite.length
         ? sortedWhite.slice(0, 10).map(([name, stats]) => {
           const sections = buildOpeningSections(name, stats, 'white');
-          return formatOpeningRow(name, stats, sections);
+          return formatOpeningRow(name, stats, sections, 'white');
         }).join('')
         : '<div class="no-data">Aucune donnée disponible</div>';
 
       blackDiv.innerHTML = sortedBlack.length
         ? sortedBlack.slice(0, 10).map(([name, stats]) => {
           const sections = buildOpeningSections(name, stats, 'black');
-          return formatOpeningRow(name, stats, sections);
+          return formatOpeningRow(name, stats, sections, 'black');
         }).join('')
         : '<div class="no-data">Aucune donnée disponible</div>';
 
@@ -1115,6 +1363,17 @@
     }
     let pinnedAnchor = null;
 
+    function setBoardOrientation(boardInstance, orientation) {
+      if (!boardInstance || !boardInstance.setOrientation) return;
+      const target = orientation === 'black' ? 'black' : 'white';
+      try {
+        const maybe = boardInstance.setOrientation(target);
+        if (maybe?.catch) maybe.catch(() => {});
+      } catch (err) {
+        console.warn('Failed to set orientation', err);
+      }
+    }
+
     function updateBoardPreviewPosition(fen) {
       if (!boardPreviewChessboard) return;
       const targetFen = fen || FEN.empty;
@@ -1153,6 +1412,8 @@
       if (!anchor) return;
       const fen = anchor.dataset.fen || '';
       const line = anchor.dataset.line || '';
+      const orientation = anchor.dataset.orientation === 'black' ? 'black' : 'white';
+      setBoardOrientation(boardPreviewChessboard, orientation);
       updateBoardPreviewPosition(fen);
       boardPreviewCaption.textContent = line;
       boardPreview.style.display = 'block';
@@ -1161,6 +1422,185 @@
 
     function hideBoardPreview() {
       boardPreview.style.display = 'none';
+    }
+
+    // ------------ MODAL BOARD ------------
+    const lineModal = document.getElementById('lineModal');
+    const lineModalTitle = document.getElementById('lineModalTitle');
+    const lineModalSummary = document.getElementById('lineModalSummary');
+    const lineModalMoves = document.getElementById('lineModalMoves');
+    const lineModalLichess = document.getElementById('lineModalLichess');
+    const lineModalClose = document.getElementById('lineModalClose');
+    const lineModalStart = document.getElementById('lineModalStart');
+    const lineModalPrev = document.getElementById('lineModalPrev');
+    const lineModalNext = document.getElementById('lineModalNext');
+    const lineModalEnd = document.getElementById('lineModalEnd');
+    const lineModalBoardEl = document.getElementById('lineModalBoard');
+    const lineModalChessboard = lineModalBoardEl
+      ? new Chessboard(lineModalBoardEl, {
+          assetsUrl: 'https://unpkg.com/cm-chessboard@7.11.0/assets/',
+          style: {
+            showCoordinates: true,
+            borderType: BORDER_TYPE.frame,
+          },
+        })
+      : null;
+    if (lineModalChessboard) {
+      lineModalChessboard.setPosition(FEN.start).catch(() => {});
+    }
+    let lineModalMoveButtons = [];
+    let lineModalState = {
+      tokens: [],
+      fens: [FEN.start],
+      index: 0,
+      orientation: 'white',
+      summary: '',
+      title: 'Séquence',
+    };
+
+    function parseMovesAttr(value = '') {
+      if (!value) return [];
+      return value
+        .split('|')
+        .map(v => v.trim())
+        .filter(Boolean);
+    }
+
+    function prepareModalState(tokens = []) {
+      const chess = new Chess();
+      const sanitized = [];
+      const fens = [chess.fen()];
+      for (const move of tokens) {
+        if (!move) continue;
+        try {
+          chess.move(move);
+          sanitized.push(move);
+          fens.push(chess.fen());
+        } catch (err) {
+          console.warn('Invalid move skipped in modal', move, err);
+          break;
+        }
+      }
+      return { sanitized, fens: fens.length ? fens : [FEN.start] };
+    }
+
+    function lichessUrlFromFen(fen, orientation = 'white') {
+      if (!fen) fen = FEN.start;
+      const encoded = fen.replace(/\s+/g, ' ').trim().replace(/ /g, '_');
+      const color = orientation === 'black' ? 'black' : 'white';
+      return `https://lichess.org/analysis/standard/${encoded}?color=${color}`;
+    }
+
+    function renderModalMoves(tokens = []) {
+      if (!lineModalMoves) return;
+      const chips = [`<button type="button" class="move-chip" data-ply="0">Début</button>`];
+      tokens.forEach((move, idx) => {
+        const ply = idx + 1;
+        const moveNumber = Math.ceil(ply / 2);
+        const isWhite = ply % 2 === 1;
+        const label = isWhite
+          ? `${moveNumber}. ${move}`
+          : `${moveNumber}... ${move}`;
+        chips.push(`
+          <button type="button" class="move-chip" data-ply="${ply}">
+            ${escapeHtml(label)}
+          </button>
+        `);
+      });
+      lineModalMoves.innerHTML = chips.join('');
+      lineModalMoveButtons = Array.from(lineModalMoves.querySelectorAll('.move-chip'));
+    }
+
+    function updateModalControls() {
+      if (!lineModalStart || !lineModalPrev || !lineModalNext || !lineModalEnd) return;
+      lineModalStart.disabled = lineModalState.index === 0;
+      lineModalPrev.disabled = lineModalState.index === 0;
+      const atEnd = lineModalState.index >= lineModalState.tokens.length;
+      lineModalNext.disabled = atEnd;
+      lineModalEnd.disabled = atEnd;
+    }
+
+    function updateModalMovesHighlight() {
+      if (!lineModalMoveButtons.length) return;
+      lineModalMoveButtons.forEach(btn => {
+        const ply = Number(btn.dataset.ply || '0');
+        btn.classList.toggle('is-active', ply === lineModalState.index);
+        btn.classList.toggle('is-past', ply < lineModalState.index);
+      });
+    }
+
+    function updateLineModal(index) {
+      if (!lineModal) return;
+      const maxIndex = Math.max(0, lineModalState.fens.length - 1);
+      const clamped = Math.max(0, Math.min(index, maxIndex));
+      lineModalState.index = clamped;
+      const fen = lineModalState.fens[clamped] || FEN.start;
+      setBoardOrientation(lineModalChessboard, lineModalState.orientation);
+      if (lineModalChessboard) {
+        lineModalChessboard.setPosition(fen).catch(() => {});
+      }
+      const descriptors = [];
+      if (lineModalState.summary) descriptors.push(lineModalState.summary);
+      if (clamped === 0) {
+        descriptors.push('Position initiale');
+      } else {
+        const demi = clamped;
+        const moveWord = demi > 1 ? 'demi-coups' : 'demi-coup';
+        descriptors.push(`Après ${demi} ${moveWord}`);
+      }
+      const side = clamped % 2 === 0 ? 'Trait aux Blancs' : 'Trait aux Noirs';
+      descriptors.push(side);
+      if (lineModalSummary) lineModalSummary.textContent = descriptors.join(' • ');
+      if (lineModalTitle) lineModalTitle.textContent = lineModalState.title || 'Séquence';
+      if (lineModalLichess) lineModalLichess.href = lichessUrlFromFen(fen, lineModalState.orientation);
+      updateModalControls();
+      updateModalMovesHighlight();
+    }
+
+    function openLineModal({ tokens, title, summary, orientation }) {
+      if (!lineModal) return;
+      const prep = prepareModalState(tokens);
+      lineModalState = {
+        tokens: prep.sanitized,
+        fens: prep.fens,
+        index: 0,
+        orientation: orientation === 'black' ? 'black' : 'white',
+        summary: summary || '',
+        title: title || 'Séquence',
+      };
+      renderModalMoves(lineModalState.tokens);
+      updateLineModal(0);
+      lineModal.classList.add('is-open');
+      lineModal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('modal-open');
+      queueMicrotask(() => {
+        lineModalClose?.focus?.();
+      });
+    }
+
+    function closeLineModal() {
+      if (!lineModal) return;
+      lineModal.classList.remove('is-open');
+      lineModal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('modal-open');
+    }
+
+    function openLineModalFromElement(element) {
+      if (!element) return false;
+      const moves = element.dataset.moves || element.dataset.mainMoves;
+      const tokens = parseMovesAttr(moves || '');
+      if (!tokens.length) return false;
+      const orientation = element.dataset.orientation === 'black' ? 'black' : 'white';
+      const enclosingOpening = element.closest('.opening-item');
+      const openingName = element.dataset.openingName
+        || enclosingOpening?.dataset?.openingName
+        || 'Séquence';
+      const summary = element.dataset.line
+        || element.dataset.mainLine
+        || enclosingOpening?.dataset?.mainLine
+        || '';
+      openLineModal({ tokens, title: openingName, summary, orientation });
+      return true;
     }
 
     document.body.addEventListener('mouseover', event => {
@@ -1174,16 +1614,32 @@
     });
 
     document.body.addEventListener('click', event => {
-      const anchor = event.target.closest('.line-preview');
-      if (anchor) {
-        if (pinnedAnchor === anchor) {
+      const previewBtn = event.target.closest('.line-preview');
+      if (previewBtn) {
+        event.preventDefault();
+        openLineModalFromElement(previewBtn);
+        pinnedAnchor = null;
+        hideBoardPreview();
+        return;
+      }
+
+      const openingCard = event.target.closest('.opening-item');
+      if (
+        openingCard &&
+        !event.target.closest('.line-preview') &&
+        !event.target.closest('a') &&
+        !event.target.closest('summary') &&
+        !event.target.closest('button')
+      ) {
+        if (openLineModalFromElement(openingCard)) {
+          event.preventDefault();
           pinnedAnchor = null;
           hideBoardPreview();
-        } else {
-          pinnedAnchor = anchor;
-          showBoardPreview(anchor);
+          return;
         }
-      } else if (!event.target.closest('#boardPreview')) {
+      }
+
+      if (!event.target.closest('#boardPreview')) {
         pinnedAnchor = null;
         hideBoardPreview();
       }
@@ -1209,6 +1665,39 @@
     window.addEventListener('resize', () => {
       if (pinnedAnchor && boardPreview.style.display === 'block') {
         positionBoardPreview(pinnedAnchor);
+      }
+    });
+
+    if (lineModalMoves) {
+      lineModalMoves.addEventListener('click', event => {
+        const chip = event.target.closest('.move-chip');
+        if (!chip) return;
+        const ply = Number(chip.dataset.ply || '0');
+        updateLineModal(ply);
+      });
+    }
+
+    lineModalStart?.addEventListener('click', () => updateLineModal(0));
+    lineModalPrev?.addEventListener('click', () => updateLineModal(lineModalState.index - 1));
+    lineModalNext?.addEventListener('click', () => updateLineModal(lineModalState.index + 1));
+    lineModalEnd?.addEventListener('click', () => updateLineModal(lineModalState.tokens.length));
+    lineModalClose?.addEventListener('click', () => closeLineModal());
+    lineModal?.addEventListener('click', event => {
+      if (event.target === lineModal) {
+        closeLineModal();
+      }
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && lineModal?.classList.contains('is-open')) {
+        closeLineModal();
+      }
+      if (event.key === 'ArrowRight' && lineModal?.classList.contains('is-open')) {
+        event.preventDefault();
+        updateLineModal(lineModalState.index + 1);
+      }
+      if (event.key === 'ArrowLeft' && lineModal?.classList.contains('is-open')) {
+        event.preventDefault();
+        updateLineModal(lineModalState.index - 1);
       }
     });
 
