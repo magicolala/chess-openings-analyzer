@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analyseur d'Ouvertures Chess.com</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .search-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+            min-width: 200px;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-size: 18px;
+            color: #667eea;
+        }
+
+        .error {
+            background: #fee;
+            color: #c00;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .player-info {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+
+        .player-info h2 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .stat-value {
+            color: #333;
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        .openings-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .openings-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .openings-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .openings-card h3 {
+            margin-bottom: 20px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chess-piece {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .white-piece {
+            background: white;
+            border: 2px solid #333;
+        }
+
+        .black-piece {
+            background: #333;
+            color: white;
+        }
+
+        .opening-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+
+        .opening-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 3px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .opening-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .trap-name {
+            color: #c00;
+            font-weight: bold;
+        }
+
+        .trap-name::before {
+            content: '☠️';
+            margin-right: 5px;
+        }
+
+        .opening-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .opening-stat {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .win-rate {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .draw-rate {
+            color: #ffc107;
+            font-weight: bold;
+        }
+
+        .loss-rate {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            margin-top: 8px;
+            overflow: hidden;
+            display: flex;
+        }
+
+        .progress-win {
+            background: #28a745;
+            height: 100%;
+            transition: width 0.3s;
+        }
+
+        .progress-draw {
+            background: #ffc107;
+            height: 100%;
+            transition: width 0.3s;
+        }
+
+        .progress-loss {
+            background: #dc3545;
+            height: 100%;
+            transition: width 0.3s;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #999;
+            padding: 20px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>♟️ Analyseur d'Ouvertures Chess.com</h1>
+        <p class="subtitle">Découvrez les ouvertures préférées de n'importe quel joueur</p>
+        
+        <div class="search-section">
+            <input type="text" id="username" placeholder="Entrez le pseudo Chess.com (ex: hikaru)" />
+            <button onclick="analyzePlayer()">Analyser</button>
+        </div>
+        
+        <div id="loading" class="loading" style="display: none;">
+            ⏳ Chargement des parties en cours...
+        </div>
+        
+        <div id="error" class="error" style="display: none;"></div>
+        
+        <div id="playerInfo" style="display: none;"></div>
+        
+        <div id="openingsSection" class="openings-section" style="display: none;">
+            <div class="openings-card">
+                <h3>
+                    <span class="chess-piece white-piece">♔</span>
+                    Ouvertures avec les Blancs
+                </h3>
+                <div id="whiteOpenings"></div>
+            </div>
+            
+            <div class="openings-card">
+                <h3>
+                    <span class="chess-piece black-piece">♚</span>
+                    Ouvertures avec les Noirs
+                </h3>
+                <div id="blackOpenings"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { registerEcoOpenings } from './eco-pack-xl.js';
+// 1) Dictionnaire d'ouvertures sur séquences de SAN tokenisées
+const ECO_OPENINGS = new Map([
+  // e4 e5
+  [['e4','e5','Nf3','Nc6','Bb5'].join(' '), 'Espagnole (Ruy Lopez)'],
+  [['e4','e5','Nf3','Nc6','Bc4'].join(' '), 'Italienne (Giuoco Piano)'],
+  [['e4','e5','Nf3','Nf6'].join(' '), 'Défense Petrov'],
+  [['e4','e5','Nf3','Nc6','d4'].join(' '), 'Écossaise'],
+  [['e4','e5','Nf3','f5'].join(' '), 'Gambit Letton'],
+  [['e4','e5','f4'].join(' '), 'Gambit du Roi'],
+  [['e4','e5','Nc3'].join(' '), 'Viennoise'],
+  [['e4','e5','Bc4'].join(' '), 'Partie du Fou'],
+
+  // Sicilienne
+  [['e4','c5'].join(' '), 'Défense Sicilienne'],
+  [['e4','c5','Nf3','d6'].join(' '), 'Sicilienne Dragon (setup)'],
+  [['e4','c5','Nf3','Nc6'].join(' '), 'Sicilienne Classique'],
+  [['e4','c5','Nf3','e6'].join(' '), 'Sicilienne Variante Française'],
+  [['e4','c5','Nf3','Nf6'].join(' '), 'Sicilienne Nimzowitsch'],
+  [['e4','c5','c3'].join(' '), 'Sicilienne Alapin'],
+
+  // Française
+  [['e4','e6'].join(' '), 'Défense Française'],
+  [['e4','e6','d4','d5'].join(' '), 'Française (Var. principale)'],
+  [['e4','e6','d4','d5','e5'].join(' '), 'Française Avance'],
+  [['e4','e6','d4','d5','Nc3'].join(' '), 'Française Classique'],
+  [['e4','e6','d4','d5','exd5'].join(' '), 'Française Échange'],
+
+  // Caro-Kann
+  [['e4','c6'].join(' '), 'Défense Caro-Kann'],
+  [['e4','c6','d4','d5'].join(' '), 'Caro-Kann (Var. principale)'],
+  [['e4','c6','d4','d5','Nc3'].join(' '), 'Caro-Kann Classique'],
+  [['e4','c6','d4','d5','e5'].join(' '), 'Caro-Kann Avance'],
+
+  // Autres vs e4
+  [['e4','d5'].join(' '), 'Défense Scandinave'],
+  [['e4','d6'].join(' '), 'Défense Pirc'],
+  [['e4','Nf6'].join(' '), 'Défense Alekhine'],
+  [['e4','g6'].join(' '), 'Défense Moderne'],
+  [['e4','Nc6'].join(' '), 'Défense Nimzowitsch'],
+  [['e4','a6'].join(' '), 'Défense St. George'],
+  [['e4','b6'].join(' '), 'Défense Owen'],
+
+  // d4
+  [['d4','d5'].join(' '), 'Partie du Pion Dame'],
+  [['d4','d5','c4'].join(' '), 'Gambit Dame'],
+  [['d4','d5','c4','dxc4'].join(' '), 'Gambit Dame Accepté'],
+  [['d4','d5','c4','e6'].join(' '), 'Gambit Dame Refusé'],
+  [['d4','d5','c4','c6'].join(' '), 'Défense Slave'],
+  [['d4','d5','Nf3'].join(' '), 'Système de Londres (ordre flexible)'],
+  [['d4','d5','Bf4'].join(' '), 'Système de Londres (avec Bf4)'],
+
+  // Indiennes
+  [['d4','Nf6'].join(' '), 'Défenses Indiennes'],
+  [['d4','Nf6','c4','e6'].join(' '), 'Nimzo/Ouest-Indienne (set-up)'],
+  [['d4','Nf6','c4','g6'].join(' '), 'Est-Indienne (set-up)'],
+  [['d4','Nf6','c4','e6','Nc3','Bb4'].join(' '), 'Défense Nimzo-Indienne'],
+  [['d4','Nf6','c4','e6','Nf3','b6'].join(' '), 'Défense Ouest-Indienne'],
+  [['d4','Nf6','c4','c5'].join(' '), 'Défense Benoni Moderne'],
+  [['d4','Nf6','Nf3','g6'].join(' '), 'Est-Indienne (avec Nf3)'],
+
+  // Autres d4
+  [['d4','f5'].join(' '), 'Défense Hollandaise'],
+  [['d4','e6'].join(' '), 'Française par transposition'],
+  [['d4','g6'].join(' '), 'Moderne vs d4'],
+  [['d4','d6'].join(' '), 'Old Indian'],
+  [['d4','c5'].join(' '), 'Benoni Ancienne'],
+
+  // Anglaise, Réti et co
+  [['c4'].join(' '), 'Ouverture Anglaise'],
+  [['c4','e5'].join(' '), 'Anglaise Symétrique (réponse e5)'],
+  [['c4','c5'].join(' '), 'Anglaise Symétrique (Sicilienne inversée)'],
+  [['c4','Nf6'].join(' '), 'Anglaise avec Nf6'],
+  [['c4','e6'].join(' '), 'Anglaise avec e6'],
+
+  [['Nf3'].join(' '), 'Ouverture Réti'],
+  [['Nf3','d5'].join(' '), 'Réti avec d5'],
+  [['Nf3','Nf6'].join(' '), 'Réti Symétrique'],
+  [['Nf3','d5','c4'].join(' '), 'Gambit Réti'],
+
+  [['f4'].join(' '), 'Ouverture Bird'],
+  [['b3'].join(' '), 'Ouverture Larsen'],
+  [['g3'].join(' '), 'Ouverture Benko (fianchetto)'],
+  [['Nc3'].join(' '), 'Ouverture Van Geet'],
+  [['e3'].join(' '), "Ouverture Van't Kruijs"],
+  [['b4','join(' '), 'Ouverture Polonaise'],
+]);
+
+registerEcoOpenings(ECO_OPENINGS, { includeTraps: true });
+
+// 2) Fallback par premier coup (quand on n’a pas de match long)
+const FIRST_MOVE_FALLBACK = new Map([
+  ['e4','Ouvertures ouvertes (1.e4)'],
+  ['d4','Ouvertures fermées (1.d4)'],
+  ['c4','Ouverture Anglaise'],
+  ['Nf3','Ouverture Réti'],
+  ['f4','Ouverture Bird'],
+  ['b3','Ouverture Larsen'],
+  ['g3','Fianchetto (type Réti/Anglaise)'],
+  ['Nc3','Ouverture Van Geet'],
+  ['e3',"Ouverture Van't Kruijs"],
+  ['b4','Ouverture Polonaise'],
+]);
+
+// 3) Normalisation robuste du PGN en liste de SAN
+function normalizeToTokens(pgn) {
+  if (!pgn || typeof pgn !== 'string') return [];
+
+  // Retirer commentaires {…}, ; jusqu’à fin de ligne, variantes (…) et NAGs $xx
+  let s = pgn
+    .replace(/\{[^}]*\}/g, ' ')
+    .replace(/;.*/g, ' ')
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/\$\d+/g, ' ');
+
+  // Retirer résultats
+  s = s.replace(/\b(1-0|0-1|1\/2-1\/2|\*)\b/g, ' ');
+
+  // Supprimer numéros de coups et ellipses
+  s = s.replace(/\d+\.(\.\.)?/g, ' ');
+
+  // Nettoyer captures et signes d’échec/mat, mais NE PAS supprimer les lettres de pièces
+  s = s.replace(/x/g, '');      // captures
+  s = s.replace(/[+#]/g, '');   // check/mate
+
+  // Retirer indications de promotion tout en gardant le coup: e8=Q -> e8
+  s = s.replace(/=([QRNB])\b/g, '');
+
+  // Normaliser espaces
+  s = s.replace(/\s+/g, ' ').trim();
+
+  if (!s) return [];
+
+  // Tokeniser et garder seulement SAN plausibles
+  const tokens = s.split(' ').filter(tok =>
+    /^[O0]-O(-O)?$/.test(tok) ||            // roques O-O / O-O-O (tolère 0)
+    /^[KQRNB]?[a-h]?[1-8]?x?[a-h][1-8]$/.test(tok) || // version large, déjà sans 'x'
+    /^[a-h][1-8]$/.test(tok) ||             // poussée simple type e4
+    /^[KQRNB][a-h][1-8]$/.test(tok)         // coup de pièce simple type Nf3
+  ).map(tok => tok.replace(/^0-0/, 'O-O').replace(/^0-0-0/, 'O-O-O')); // 0→O
+
+  return tokens;
+}
+
+// 4) Matching: plus long préfixe commun
+function longestOpeningMatch(tokens) {
+  if (!tokens.length) return null;
+
+  // On génère les préfixes du game: 10 premiers demi-coups suffisent
+  const MAX_PLIES = Math.min(tokens.length, 20);
+  let best = null;
+
+  for (let plies = MAX_PLIES; plies >= 2; plies--) {
+    const prefix = tokens.slice(0, plies).join(' ');
+    // Essai direct
+    if (ECO_OPENINGS.has(prefix)) {
+      best = ECO_OPENINGS.get(prefix);
+      break;
+    }
+    // Sinon on essaie tous les patterns connus qui sont préfixes du game
+    for (const [pattern, name] of ECO_OPENINGS.entries()) {
+      // pattern et prefix sont des strings denses, on teste par startsWith sur tokens
+      if (prefix.startsWith(pattern + ' ') || prefix === pattern) {
+        best = name;
+        break;
+      }
+    }
+    if (best) break;
+  }
+
+  return best;
+}
+
+function getOpeningName(pgn) {
+    if (!pgn) return 'Ouverture inconnue';
+
+    const tokens = normalizeToTokens(pgn);
+    if (!tokens.length) return 'Ouverture inconnue';
+
+    // 1) Chercher match précis le plus long
+    let bestMatch = longestOpeningMatch(tokens);
+
+    // 2) Fallback: par premier coup
+    if (!bestMatch) {
+        const first = tokens[0];
+        if (FIRST_MOVE_FALLBACK.has(first)) {
+            bestMatch = FIRST_MOVE_FALLBACK.get(first);
+        }
+    }
+
+    // 3) Si toujours rien, heuristique
+    if (!bestMatch) {
+        const first = tokens[0];
+        if (first === 'O-O' || first === 'O-O-O') {
+            bestMatch = 'Ouverture avec roque rapide';
+        } else {
+            bestMatch = 'Ouverture inconnue';
+        }
+    }
+
+    // 4) Mise en évidence des pièges
+    if (bestMatch && bestMatch.startsWith('Piège:')) {
+        return `<span class="trap-name">${bestMatch}</span>`;
+    }
+
+    return bestMatch;
+}
+
+
+        async function analyzePlayer() {
+            const username = document.getElementById('username').value.trim();
+            if (!username) {
+                showError('Veuillez entrer un pseudo Chess.com');
+                return;
+            }
+            
+            hideError();
+            showLoading();
+            hideResults();
+            
+            try {
+                // Récupérer les infos du joueur
+                const playerResponse = await fetch(`https://api.chess.com/pub/player/${username}`);
+                if (!playerResponse.ok) {
+                    throw new Error('Joueur non trouvé');
+                }
+                const playerData = await playerResponse.json();
+                
+                // Récupérer les stats
+                const statsResponse = await fetch(`https://api.chess.com/pub/player/${username}/stats`);
+                const statsData = await statsResponse.json();
+                
+                // Récupérer les parties récentes
+                const currentDate = new Date();
+                const recentGames = [];
+                const monthsToCheck = 3; // Analyser les 3 derniers mois
+                
+                for (let i = 0; i < monthsToCheck; i++) {
+                    const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    
+                    try {
+                        const gamesResponse = await fetch(`https://api.chess.com/pub/player/${username}/games/${year}/${month}`);
+                        if (gamesResponse.ok) {
+                            const gamesData = await gamesResponse.json();
+                            if (gamesData.games && gamesData.games.length > 0) {
+                                recentGames.push(...gamesData.games);
+                            }
+                        }
+                    } catch (e) {
+                        console.log(`Pas de parties pour ${month}/${year}`);
+                    }
+                }
+                
+                if (recentGames.length === 0) {
+                    throw new Error('Aucune partie récente trouvée');
+                }
+                
+                // Analyser les ouvertures
+                const whiteOpenings = {};
+                const blackOpenings = {};
+                
+                recentGames.forEach(game => {
+                    if (game.pgn) {
+                        const pgn = game.pgn;
+                        const isWhite = game.white.username.toLowerCase() === username.toLowerCase();
+
+                        // Nettoyer le PGN pour extraire uniquement la séquence de coups
+                        const movesOnly = pgn
+                            .replace(/\[.*?\]\s*/g, '') // Supprime les en-têtes PGN comme [Event "..."]
+                            .replace(/\{[^}]*\}\s*/g, '') // Supprime les commentaires
+                            .replace(/\d+\.\s*/g, '') // Supprime les numéros de coup (1. 2. etc.)
+                            .replace(/\s+/g, ' ').trim();
+
+                        const openingMoves = movesOnly.split(' ').slice(0, 10).join(' ');
+                        if (openingMoves) {
+                            
+                            const openingName = getOpeningName(openingMoves);
+                            
+                            // Déterminer le résultat
+                            let result = 'draw';
+                            if (game.white.result === 'win') {
+                                result = isWhite ? 'win' : 'loss';
+                            } else if (game.black.result === 'win') {
+                                result = isWhite ? 'loss' : 'win';
+                            }
+                            
+                            const targetOpenings = isWhite ? whiteOpenings : blackOpenings;
+                            
+                            if (!targetOpenings[openingName]) {
+                                targetOpenings[openingName] = {
+                                    count: 0,
+                                    wins: 0,
+                                    draws: 0,
+                                    losses: 0
+                                };
+                            }
+                            
+                            targetOpenings[openingName].count++;
+                            if (result === 'win') targetOpenings[openingName].wins++;
+                            else if (result === 'draw') targetOpenings[openingName].draws++;
+                            else targetOpenings[openingName].losses++;
+                        }
+                    }
+                });
+                
+                // Afficher les résultats
+                displayPlayerInfo(playerData, statsData);
+                displayOpenings(whiteOpenings, blackOpenings);
+                
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+        
+        function displayPlayerInfo(playerData, statsData) {
+            const playerInfoDiv = document.getElementById('playerInfo');
+            
+            // Récupérer les ratings
+            let rapidRating = statsData?.chess_rapid?.last?.rating || 'N/A';
+            let blitzRating = statsData?.chess_blitz?.last?.rating || 'N/A';
+            let bulletRating = statsData?.chess_bullet?.last?.rating || 'N/A';
+            
+            playerInfoDiv.innerHTML = `
+                <div class="player-info">
+                    <h2>${playerData.username}</h2>
+                    <div class="stats">
+                        <div class="stat-card">
+                            <div class="stat-label">Rapid</div>
+                            <div class="stat-value">${rapidRating}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Blitz</div>
+                            <div class="stat-value">${blitzRating}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Bullet</div>
+                            <div class="stat-value">${bulletRating}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Pays</div>
+                            <div class="stat-value">${playerData.country ? playerData.country.substring(34) : 'N/A'}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            playerInfoDiv.style.display = 'block';
+        }
+        
+        function displayOpenings(whiteOpenings, blackOpenings) {
+            const whiteDiv = document.getElementById('whiteOpenings');
+            const blackDiv = document.getElementById('blackOpenings');
+            
+            // Trier par nombre de parties
+            const sortedWhite = Object.entries(whiteOpenings).sort((a, b) => b[1].count - a[1].count);
+            const sortedBlack = Object.entries(blackOpenings).sort((a, b) => b[1].count - a[1].count);
+            
+            // Afficher les ouvertures blanches
+            if (sortedWhite.length > 0) {
+                whiteDiv.innerHTML = sortedWhite.slice(0, 10).map(([name, stats]) => {
+                    const winRate = ((stats.wins / stats.count) * 100).toFixed(1);
+                    const drawRate = ((stats.draws / stats.count) * 100).toFixed(1);
+                    const lossRate = ((stats.losses / stats.count) * 100).toFixed(1);
+                    
+                    return `
+                        <div class="opening-item">
+                            <div class="opening-name">${name}</div>
+                            <div class="opening-stats">
+                                <span class="opening-stat">📊 ${stats.count} parties</span>
+                                <span class="opening-stat win-rate">✓ ${winRate}%</span>
+                                <span class="opening-stat draw-rate">= ${drawRate}%</span>
+                                <span class="opening-stat loss-rate">✗ ${lossRate}%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-win" style="width: ${winRate}%"></div>
+                                <div class="progress-draw" style="width: ${drawRate}%"></div>
+                                <div class="progress-loss" style="width: ${lossRate}%"></div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                whiteDiv.innerHTML = '<div class="no-data">Aucune donnée disponible</div>';
+            }
+            
+            // Afficher les ouvertures noires
+            if (sortedBlack.length > 0) {
+                blackDiv.innerHTML = sortedBlack.slice(0, 10).map(([name, stats]) => {
+                    const winRate = ((stats.wins / stats.count) * 100).toFixed(1);
+                    const drawRate = ((stats.draws / stats.count) * 100).toFixed(1);
+                    const lossRate = ((stats.losses / stats.count) * 100).toFixed(1);
+                    
+                    return `
+                        <div class="opening-item">
+                            <div class="opening-name">${name}</div>
+                            <div class="opening-stats">
+                                <span class="opening-stat">📊 ${stats.count} parties</span>
+                                <span class="opening-stat win-rate">✓ ${winRate}%</span>
+                                <span class="opening-stat draw-rate">= ${drawRate}%</span>
+                                <span class="opening-stat loss-rate">✗ ${lossRate}%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-win" style="width: ${winRate}%"></div>
+                                <div class="progress-draw" style="width: ${drawRate}%"></div>
+                                <div class="progress-loss" style="width: ${lossRate}%"></div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                blackDiv.innerHTML = '<div class="no-data">Aucune donnée disponible</div>';
+            }
+            
+            document.getElementById('openingsSection').style.display = 'grid';
+        }
+        
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+        
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = `❌ Erreur : ${message}`;
+            errorDiv.style.display = 'block';
+        }
+        
+        function hideError() {
+            document.getElementById('error').style.display = 'none';
+        }
+        
+        function hideResults() {
+            document.getElementById('playerInfo').style.display = 'none';
+            document.getElementById('openingsSection').style.display = 'none';
+        }
+        
+        // Permettre la recherche avec Enter
+        document.getElementById('username').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                analyzePlayer();
+            }
+        });
+    </script>
+</body>
+</html>
