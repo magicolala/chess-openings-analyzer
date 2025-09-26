@@ -712,12 +712,22 @@
     }
 
     // ------------ PGN → TOKENS ------------
+    function loadPgnCompat(chessInstance, pgn, options) {
+      const loader = typeof chessInstance.loadPgn === 'function'
+        ? chessInstance.loadPgn
+        : typeof chessInstance.load_pgn === 'function'
+          ? chessInstance.load_pgn
+          : null;
+      if (!loader) throw new Error('No loadPgn function available on chess.js instance');
+      return loader.call(chessInstance, pgn, options);
+    }
+
     function normalizeToTokens(pgn) {
       if (!pgn || typeof pgn !== 'string') return [];
 
       try {
         const chess = new Chess();
-        const loaded = chess.load_pgn(pgn, { sloppy: true });
+        const loaded = loadPgnCompat(chess, pgn, { sloppy: true });
         if (loaded) {
           return chess.history({ verbose: true }).map(move =>
             (move?.san || '')
