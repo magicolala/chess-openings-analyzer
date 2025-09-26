@@ -45,26 +45,126 @@
       margin-bottom: 30px;
     }
 
-    .search-section {
-      display: flex;
+    .mode-toggle {
+      display: inline-flex;
       gap: 10px;
-      margin-bottom: 30px;
-      flex-wrap: wrap;
+      margin-bottom: 18px;
+      background: #eef2ff;
+      padding: 6px;
+      border-radius: 999px;
     }
 
-    input[type="text"] {
-      flex: 1;
-      padding: 15px;
+    .mode-btn {
+      border: none;
+      background: transparent;
+      color: #4c51bf;
+      font-weight: 600;
+      padding: 10px 18px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, transform 0.2s;
+    }
+
+    .mode-btn.is-active {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      box-shadow: 0 10px 24px rgba(102, 126, 234, 0.35);
+    }
+
+    .mode-btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .search-section {
+      display: grid;
+      gap: 16px;
+      margin-bottom: 30px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      align-items: end;
+    }
+
+    .control-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .toggle-field {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .toggle-field.is-disabled {
+      opacity: 0.6;
+    }
+
+    .toggle-field.is-disabled input:not([type="checkbox"]),
+    .toggle-field.is-disabled select {
+      cursor: not-allowed;
+    }
+
+    .control-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #4c51bf;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .engine-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    .engine-toggle input[type="checkbox"] {
+      transform: scale(1.2);
+    }
+
+    .engine-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .engine-option {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .engine-option label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: #64748b;
+      letter-spacing: 0.05em;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select {
+      padding: 14px 15px;
       border: 2px solid #ddd;
       border-radius: 10px;
       font-size: 16px;
-      transition: border-color 0.3s;
-      min-width: 200px;
+      transition: border-color 0.3s, box-shadow 0.3s;
+      min-width: 0;
+      width: 100%;
+      background: white;
     }
 
-    input[type="text"]:focus {
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    select:focus {
       outline: none;
       border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
     }
 
     button {
@@ -76,6 +176,109 @@
       font-size: 16px;
       cursor: pointer;
       transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .primary-action {
+      align-self: stretch;
+      min-height: 54px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .secondary-button {
+      background: white;
+      color: #4c51bf;
+      border: 2px solid rgba(102, 126, 234, 0.4);
+      box-shadow: none;
+    }
+
+    .secondary-button:hover {
+      background: #eef2ff;
+      box-shadow: 0 5px 16px rgba(102, 126, 234, 0.25);
+    }
+
+    .prep-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 12px 0 24px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .badge-trap {
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+    }
+
+    .badge-gm {
+      background: #ecfdf5;
+      color: #047857;
+      border: 1px solid #bbf7d0;
+    }
+
+    .badge-improve {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+
+    .gm-section,
+    .improvement-section {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 12px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+    }
+
+    .gm-entry + .gm-entry,
+    .improvement-entry + .improvement-entry {
+      margin-top: 12px;
+    }
+
+    .gm-entry-title,
+    .improvement-entry-title {
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 4px;
+    }
+
+    .gm-meta,
+    .improvement-meta {
+      font-size: 0.85rem;
+      color: #4b5563;
+    }
+
+    .gm-reco,
+    .improvement-reco {
+      margin-top: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .source-tag {
+      font-size: 12px;
+      color: #4c51bf;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .delta-positive {
+      color: #047857;
+      font-weight: 600;
     }
 
     button:hover {
@@ -590,9 +793,84 @@
     <h1>♟️ Analyseur d'Ouvertures Chess.com</h1>
     <p class="subtitle">Découvrez les ouvertures préférées de n'importe quel joueur</p>
 
-    <div class="search-section">
-      <input type="text" id="username" placeholder="Entrez le pseudo Chess.com (ex: hikaru)" />
-      <button id="analyzeBtn">Analyser</button>
+    <div class="mode-toggle" role="tablist" aria-label="Mode d'analyse">
+      <button type="button" class="mode-btn is-active" data-mode="opponent" id="modeOpponent" aria-pressed="true">
+        Analyser un adversaire
+      </button>
+      <button type="button" class="mode-btn" data-mode="self" id="modeSelf" aria-pressed="false">
+        M'analyser moi
+      </button>
+    </div>
+
+    <div class="search-section" id="controlPanel">
+      <div class="control-field">
+        <label class="control-label" for="username">Pseudo Chess.com</label>
+        <input
+          type="text"
+          id="username"
+          placeholder="Entrez le pseudo Chess.com (ex: hikaru)"
+          autocomplete="username"
+        />
+      </div>
+      <div class="control-field">
+        <label class="control-label" for="speedSelect">Cadence cible</label>
+        <select id="speedSelect">
+          <option value="auto">Auto (selon stats)</option>
+          <option value="bullet">Bullet</option>
+          <option value="blitz">Blitz</option>
+          <option value="rapid">Rapid</option>
+          <option value="classical">Classical</option>
+          <option value="correspondence">Correspondence</option>
+        </select>
+      </div>
+      <div class="control-field">
+        <label class="control-label" for="ratingOffset">Décalage Elo Explorer</label>
+        <input type="number" id="ratingOffset" value="0" step="50" />
+      </div>
+      <div class="control-field">
+        <label class="control-label" for="gmMode">Théorie GM</label>
+        <select id="gmMode">
+          <option value="top1">Top 1</option>
+          <option value="topK">Top K</option>
+          <option value="coverage">Couverture %</option>
+        </select>
+      </div>
+      <div class="control-field" id="gmTopKField" style="display: none;">
+        <label class="control-label" for="gmTopK">K (Top K)</label>
+        <input type="number" id="gmTopK" min="1" max="6" value="3" />
+      </div>
+      <div class="control-field" id="gmCoverageField" style="display: none;">
+        <label class="control-label" for="gmCoverage">Couverture minimale (%)</label>
+        <input type="number" id="gmCoverage" min="10" max="100" value="70" step="5" />
+      </div>
+      <div class="control-field">
+        <label class="control-label" for="minMasterGames">Volume Masters minimum</label>
+        <input type="number" id="minMasterGames" min="10" max="500" step="10" value="50" />
+      </div>
+      <div class="control-field toggle-field" id="engineSettings">
+        <span class="control-label">Moteur local</span>
+        <label class="engine-toggle" for="engineEnabled">
+          <input type="checkbox" id="engineEnabled" />
+          <span>Activer Stockfish local</span>
+        </label>
+        <input
+          type="text"
+          id="enginePath"
+          placeholder="Chemin Worker Stockfish (optionnel)"
+          autocomplete="off"
+        />
+        <div class="engine-options">
+          <div class="engine-option">
+            <label for="engineDepth">Profondeur</label>
+            <input type="number" id="engineDepth" min="6" max="30" value="18" />
+          </div>
+          <div class="engine-option">
+            <label for="engineMultiPv">MultiPV</label>
+            <input type="number" id="engineMultiPv" min="1" max="5" value="3" />
+          </div>
+        </div>
+      </div>
+      <button id="analyzeBtn" class="primary-action">Lancer l'analyse</button>
     </div>
 
     <div id="loading" class="loading" style="display: none;">
@@ -602,6 +880,12 @@
     <div id="error" class="error" style="display: none;"></div>
 
     <div id="playerInfo" style="display: none;"></div>
+
+    <div id="prepActions" class="prep-actions" style="display: none;">
+      <button type="button" id="exportJsonBtn" class="secondary-button">Export JSON</button>
+      <button type="button" id="exportMarkdownBtn" class="secondary-button">Export Markdown</button>
+      <button type="button" id="exportPdfBtn" class="secondary-button">PDF imprimable</button>
+    </div>
 
     <div id="openingsSection" class="openings-section" style="display: none;">
       <div class="openings-card">
@@ -684,9 +968,313 @@
       BORDER_TYPE,
       FEN,
     } from 'https://unpkg.com/cm-chessboard@7.11.0/src/Chessboard.js';
-    import { adviseFromLichess, mapSpeed, pickLichessBucket } from './lichess-explorer.js';
+    import {
+      adviseFromLichess,
+      detectGmDeviationsFromPgn,
+      fetchExplorer,
+      pickLichessBucket,
+      scoreMoves,
+    } from './lichess-explorer.js';
     import { registerEcoOpenings } from './eco-pack-xl.js';
     import { TrapEngine, TRAP_PACK } from './trap-engine.js';
+
+    class EngineManager {
+      constructor() {
+        this.worker = null;
+        this.currentPath = null;
+        this.ready = false;
+        this.options = {};
+        this.pendingEval = null;
+        this.currentFen = null;
+        this.resolveReady = null;
+        this.rejectReady = null;
+      }
+
+      dispose() {
+        if (this.pendingEval) {
+          clearTimeout(this.pendingEval.timeoutId);
+          try {
+            this.pendingEval.resolve(null);
+          } catch {}
+          this.pendingEval = null;
+        }
+        if (this.worker) {
+          try {
+            this.worker.terminate();
+          } catch {}
+        }
+        this.worker = null;
+        this.currentPath = null;
+        this.ready = false;
+        this.currentFen = null;
+        this.resolveReady = null;
+        this.rejectReady = null;
+      }
+
+      async configure(config = {}) {
+        this.options = config;
+        if (!config.enabled || !config.path) {
+          this.dispose();
+          return;
+        }
+        if (this.worker && this.currentPath === config.path) {
+          try {
+            await this.waitUntilReady(2500).catch(() => {});
+          } catch {}
+          return;
+        }
+
+        this.dispose();
+        try {
+          this.worker = new Worker(config.path);
+        } catch (err) {
+          console.warn('Impossible d\'initialiser le moteur local:', err);
+          this.worker = null;
+          return;
+        }
+
+        this.currentPath = config.path;
+        this.ready = false;
+        this.worker.onmessage = (event) => this.handleMessage(event.data);
+        this.worker.onerror = (event) => {
+          console.warn('Erreur moteur:', event.message || event);
+          this.ready = false;
+        };
+        this.sendCommand('uci');
+
+        try {
+          await this.waitUntilReady(4000);
+        } catch (err) {
+          console.warn('Le moteur ne répond pas:', err?.message || err);
+        }
+
+        if (this.ready) {
+          const multipv = Math.max(1, Math.min(5, Number(config.multipv) || 1));
+          this.sendCommand(`setoption name MultiPV value ${multipv}`);
+          if (config.threads) {
+            this.sendCommand(`setoption name Threads value ${config.threads}`);
+          }
+        }
+      }
+
+      sendCommand(command) {
+        if (!this.worker || !command) return;
+        try {
+          this.worker.postMessage(command);
+        } catch (err) {
+          console.warn('Commande moteur rejetée', command, err);
+        }
+      }
+
+      handleMessage(message) {
+        if (message == null) return;
+        if (typeof message === 'string') {
+          this.handleMessageString(message);
+        } else if (typeof message === 'object') {
+          if (message.type === 'info' && message.message) {
+            this.handleInfo(String(message.message));
+          } else if (message.type === 'bestmove' && message.message) {
+            this.handleBestmove(String(message.message));
+          } else if (typeof message.message === 'string') {
+            this.handleMessageString(message.message);
+          }
+        }
+      }
+
+      handleMessageString(line) {
+        const text = String(line || '').trim();
+        if (!text) return;
+        if (text === 'uciok') {
+          this.sendCommand('isready');
+          return;
+        }
+        if (text === 'readyok') {
+          this.ready = true;
+          if (this.resolveReady) {
+            this.resolveReady();
+            this.resolveReady = null;
+            this.rejectReady = null;
+          }
+          return;
+        }
+        if (text.startsWith('info ')) {
+          this.handleInfo(text);
+          return;
+        }
+        if (text.startsWith('bestmove')) {
+          this.handleBestmove(text);
+        }
+      }
+
+      handleInfo(line) {
+        if (!this.pendingEval) return;
+        const parsed = this.parseInfoLine(line);
+        if (!parsed) return;
+        this.pendingEval.lines.set(parsed.multipv, parsed);
+      }
+
+      handleBestmove(line) {
+        if (!this.pendingEval) return;
+        clearTimeout(this.pendingEval.timeoutId);
+        const parts = String(line).trim().split(/\s+/);
+        const bestmove = parts[1] || '';
+        const lines = Array.from(this.pendingEval.lines.values())
+          .sort((a, b) => a.multipv - b.multipv)
+          .map((entry) => ({
+            multipv: entry.multipv,
+            score: entry.score,
+            pvSan: entry.pvSan,
+            pvUci: entry.pvUci,
+          }));
+        const payload = { bestmove, lines };
+        try {
+          this.pendingEval.resolve(lines.length ? payload : null);
+        } catch {}
+        this.pendingEval = null;
+      }
+
+      waitUntilReady(timeout = 3000) {
+        if (this.ready) return Promise.resolve(true);
+        return new Promise((resolve, reject) => {
+          if (!this.worker) {
+            reject(new Error('Moteur non initialisé'));
+            return;
+          }
+          const timer = setTimeout(() => {
+            this.resolveReady = null;
+            this.rejectReady = null;
+            reject(new Error('Timeout moteur'));
+          }, timeout);
+          this.resolveReady = () => {
+            clearTimeout(timer);
+            resolve(true);
+          };
+          this.rejectReady = (err) => {
+            clearTimeout(timer);
+            reject(err);
+          };
+          this.sendCommand('isready');
+        });
+      }
+
+      async evaluateFen(fen, options = {}) {
+        if (!this.worker) return null;
+        if (!this.ready) {
+          try {
+            await this.waitUntilReady(3000);
+          } catch (err) {
+            console.warn('Moteur indisponible:', err?.message || err);
+            return null;
+          }
+        }
+
+        return new Promise((resolve) => {
+          if (!this.worker) {
+            resolve(null);
+            return;
+          }
+
+          if (this.pendingEval) {
+            clearTimeout(this.pendingEval.timeoutId);
+            try {
+              this.pendingEval.resolve(null);
+            } catch {}
+            this.pendingEval = null;
+          }
+
+          this.currentFen = fen;
+          const evaluation = {
+            resolve,
+            lines: new Map(),
+            timeoutId: null,
+          };
+          this.pendingEval = evaluation;
+
+          this.sendCommand('stop');
+          this.sendCommand('ucinewgame');
+          this.sendCommand(`position fen ${fen}`);
+
+          const goCommand = this.buildGoCommand(options || this.options || {});
+          this.sendCommand(goCommand);
+
+          const timeoutMs = options.timeoutMs || 6000;
+          evaluation.timeoutId = setTimeout(() => {
+            this.sendCommand('stop');
+            if (this.pendingEval === evaluation) {
+              this.pendingEval = null;
+              resolve(null);
+            }
+          }, timeoutMs);
+        });
+      }
+
+      buildGoCommand(options) {
+        const parts = ['go'];
+        if (options.movetime) {
+          parts.push('movetime', Number(options.movetime));
+        } else if (options.depth) {
+          parts.push('depth', Number(options.depth));
+        } else if (this.options.depth) {
+          parts.push('depth', Number(this.options.depth));
+        } else {
+          parts.push('depth', 18);
+        }
+        if (options.nodes) {
+          parts.push('nodes', Number(options.nodes));
+        }
+        if (options.multipv || this.options.multipv) {
+          const v = Number(options.multipv || this.options.multipv);
+          if (v > 1) parts.push('multipv', Math.max(1, Math.min(5, v)));
+        }
+        return parts.join(' ');
+      }
+
+      parseInfoLine(line) {
+        const parts = String(line).trim().split(/\s+/);
+        let multipv = 1;
+        let scoreType = null;
+        let scoreValue = null;
+        let pvIndex = parts.indexOf('pv');
+        for (let i = 0; i < parts.length; i++) {
+          const token = parts[i];
+          if (token === 'multipv' && i + 1 < parts.length) {
+            const value = Number(parts[i + 1]);
+            if (Number.isFinite(value)) multipv = value;
+          }
+          if (token === 'score' && i + 2 < parts.length) {
+            scoreType = parts[i + 1];
+            scoreValue = Number(parts[i + 2]);
+          }
+        }
+        const pvUci = pvIndex >= 0 ? parts.slice(pvIndex + 1) : [];
+        const pvSan = this.convertPvToSan(pvUci);
+        if (!pvSan.length && !pvUci.length) return null;
+        const score = scoreType ? { type: scoreType, value: scoreValue } : null;
+        return { multipv, score, pvSan, pvUci };
+      }
+
+      convertPvToSan(pvMoves) {
+        if (!pvMoves?.length || !this.currentFen) return pvMoves || [];
+        const chess = new Chess();
+        try {
+          const ok = chess.load(this.currentFen);
+          if (!ok) return pvMoves;
+        } catch (err) {
+          return pvMoves;
+        }
+        const out = [];
+        for (const move of pvMoves) {
+          if (!move) break;
+          const from = move.slice(0, 2);
+          const to = move.slice(2, 4);
+          const promotion = move.length > 4 ? move.slice(4) : undefined;
+          const played = chess.move({ from, to, promotion }, { sloppy: true });
+          if (!played) break;
+          out.push(played.san);
+        }
+        return out.length ? out : pvMoves;
+      }
+    }
 
     // ------------ ECO MAP DE BASE + PACK XL ------------
     const ECO_OPENINGS = new Map([
@@ -779,6 +1367,22 @@
 
     const trapEngine = new TrapEngine();
     trapEngine.register(TRAP_PACK);
+
+    const engineManager = new EngineManager();
+
+    const ANALYSIS_MODES = {
+      opponent: 'opponent',
+      self: 'self',
+    };
+
+    const state = {
+      mode: ANALYSIS_MODES.opponent,
+      latestPrep: null,
+      latestPlayer: null,
+      speed: 'blitz',
+      ratingBucket: null,
+      config: null,
+    };
 
     // ------------ FALLBACK 1er COUP ------------
     const FIRST_MOVE_FALLBACK = new Map([
@@ -1004,6 +1608,10 @@
       return tokens;
     }
 
+    function sanitizeSanSequence(seq = []) {
+      return (seq || []).map((san) => String(san || '').replace(/[+#]/g, ''));
+    }
+
     // ------------ MATCHING OUVERTURE ------------
     function getOpeningName(tokens) {
       if (!tokens.length) return 'Ouverture inconnue';
@@ -1031,9 +1639,118 @@
       return (tokens.length % 2 === 0) ? 'white' : 'black';
     }
 
+    async function fetchPlayerContext(username) {
+      const base = `https://api.chess.com/pub/player/${encodeURIComponent(username)}`;
+      const { signal, cleanup } = withTimeout(FETCH_TIMEOUT_MS);
+      const [playerRes, statsRes] = await Promise.all([
+        fetch(base, { signal }),
+        fetch(`${base}/stats`, { signal }),
+      ]);
+      cleanup();
+
+      if (!playerRes.ok) throw new Error('Joueur non trouvé');
+      const playerData = await playerRes.json();
+      const statsData = statsRes.ok ? await statsRes.json() : {};
+
+      const now = new Date();
+      const months = Array.from({ length: MONTHS_TO_CHECK }, (_, i) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        return { y: d.getFullYear(), m: String(d.getMonth() + 1).padStart(2, '0') };
+      });
+
+      const monthFetches = months.map(({ y, m }) => {
+        const { signal, cleanup } = withTimeout(FETCH_TIMEOUT_MS);
+        return fetch(`https://api.chess.com/pub/player/${encodeURIComponent(username)}/games/${y}/${m}`, { signal })
+          .then((r) => {
+            cleanup();
+            return r.ok ? r.json() : { games: [] };
+          })
+          .catch(() => ({ games: [] }));
+      });
+
+      const monthPayloads = await Promise.allSettled(monthFetches);
+      const recentGames = monthPayloads.flatMap((res) =>
+        res.status === 'fulfilled' ? (res.value.games || []) : []
+      );
+
+      const games = recentGames.filter((g) => (g.rules ? g.rules === 'chess' : true));
+      if (!games.length) throw new Error('Aucune partie récente trouvée');
+
+      return { playerData, statsData, games };
+    }
+
+    function ensureOpeningBucket(collection, name) {
+      if (!collection[name]) {
+        collection[name] = {
+          count: 0,
+          wins: 0,
+          draws: 0,
+          losses: 0,
+          traps: [],
+          games: [],
+          _sampleTokens: null,
+          _samplePgn: null,
+        };
+      }
+      return collection[name];
+    }
+
+    function aggregateOpenings(games, username) {
+      const lower = String(username || '').toLowerCase();
+      const whiteOpenings = {};
+      const blackOpenings = {};
+
+      for (const game of games) {
+        if (!game?.pgn) continue;
+        const youAreWhite =
+          game.white &&
+          game.white.username &&
+          String(game.white.username).toLowerCase() === lower;
+        const tokens = normalizeToTokens(game.pgn).slice(0, 20);
+        const openingName = getOpeningName(tokens);
+        const targetOpenings = youAreWhite ? whiteOpenings : blackOpenings;
+        const bucket = ensureOpeningBucket(targetOpenings, openingName);
+
+        if (!bucket._sampleTokens && tokens.length) bucket._sampleTokens = tokens;
+        if (!bucket._samplePgn && game.pgn) bucket._samplePgn = game.pgn;
+
+        bucket.count += 1;
+        const whiteResult = game.white?.result;
+        const blackResult = game.black?.result;
+        let result = 'draw';
+        if (whiteResult === 'win') result = youAreWhite ? 'win' : 'loss';
+        else if (blackResult === 'win') result = youAreWhite ? 'loss' : 'win';
+        else if (whiteResult === 'timeout' && blackResult === 'win') result = youAreWhite ? 'loss' : 'win';
+        else if (blackResult === 'timeout' && whiteResult === 'win') result = youAreWhite ? 'win' : 'loss';
+
+        if (result === 'win') bucket.wins += 1;
+        else if (result === 'draw') bucket.draws += 1;
+        else bucket.losses += 1;
+
+        bucket.games.push({
+          pgn: game.pgn,
+          youAreWhite,
+          endTime: game.end_time,
+          url: game.url,
+          opponent: youAreWhite ? game.black?.username : game.white?.username,
+        });
+
+        const trapScan = trapEngine.matchPgn(game.pgn, {
+          openingLabel: openingName,
+          side: youAreWhite ? 'white' : 'black',
+          maxPlies: 24,
+        });
+        if (trapScan.hits.length) {
+          bucket.traps.push(...trapScan.hits.slice(0, 2));
+          bucket.isTrap = true;
+        }
+      }
+
+      return { whiteOpenings, blackOpenings };
+    }
+
     // Choix cadence par défaut en fonction des stats Chess.com
     function pickSpeedFromChesscom(statsData) {
-      // prend la meilleure cadence dispo, sinon 'blitz'
       const order = ['chess_blitz', 'chess_rapid', 'chess_bullet'];
       for (const k of order) {
         if (statsData?.[k]?.last?.rating) {
@@ -1044,139 +1761,460 @@
       return 'blitz';
     }
 
-    // Enrichit un bloc d’ouvertures avec suggestions Lichess
-    async function enrichWithLichessSuggestions(openingsObject, playerElo, chesscomStats) {
-      const entries = Object.entries(openingsObject);
-      const speed = pickSpeedFromChesscom(chesscomStats);
+    function determineTargetSpeed(statsData, override) {
+      if (override && override !== 'auto') return override;
+      return pickSpeedFromChesscom(statsData);
+    }
 
-      // On ne va pas spamer l’API: on prend les 8 openings les plus fréquentes
+    function computePlayerRating(statsData) {
+      return (
+        statsData?.chess_blitz?.last?.rating ||
+        statsData?.chess_rapid?.last?.rating ||
+        statsData?.chess_bullet?.last?.rating ||
+        statsData?.chess_rapid?.last?.best?.rating ||
+        statsData?.chess_blitz?.last?.best?.rating ||
+        statsData?.chess_bullet?.last?.best?.rating ||
+        1500
+      );
+    }
+
+    function readNumberInput(id, fallback = 0) {
+      const el = document.getElementById(id);
+      if (!el) return fallback;
+      const value = Number(el.value);
+      return Number.isFinite(value) ? value : fallback;
+    }
+
+    function readAnalysisConfig() {
+      const gmMode = document.getElementById('gmMode').value;
+      return {
+        speedOverride: document.getElementById('speedSelect').value,
+        ratingOffset: readNumberInput('ratingOffset', 0),
+        gmMode,
+        gmTopK: readNumberInput('gmTopK', 3),
+        gmCoverage: readNumberInput('gmCoverage', 70) / 100,
+        minMasterGames: readNumberInput('minMasterGames', 50),
+        engine: {
+          enabled: document.getElementById('engineEnabled').checked,
+          path: document.getElementById('enginePath').value.trim(),
+          depth: readNumberInput('engineDepth', 18),
+          multipv: readNumberInput('engineMultiPv', 3),
+        },
+      };
+    }
+
+    function updateGmOptionVisibility() {
+      const gmMode = document.getElementById('gmMode').value;
+      const topKField = document.getElementById('gmTopKField');
+      const coverageField = document.getElementById('gmCoverageField');
+      if (gmMode === 'topK') {
+        topKField.style.display = '';
+        coverageField.style.display = 'none';
+      } else if (gmMode === 'coverage') {
+        topKField.style.display = 'none';
+        coverageField.style.display = '';
+      } else {
+        topKField.style.display = 'none';
+        coverageField.style.display = 'none';
+      }
+    }
+
+    function updateEngineControlsAvailability() {
+      const container = document.getElementById('engineSettings');
+      const enabled = document.getElementById('engineEnabled').checked;
+      if (!container) return;
+      container.classList.toggle('is-disabled', !enabled);
+      const inputs = container.querySelectorAll('input, select, textarea');
+      inputs.forEach((input) => {
+        if (input.id === 'engineEnabled') return;
+        input.disabled = !enabled;
+      });
+      const pathInput = document.getElementById('enginePath');
+      if (pathInput) {
+        pathInput.placeholder = enabled
+          ? 'Chemin Worker Stockfish (optionnel)'
+          : 'Activez le moteur pour saisir un chemin';
+      }
+    }
+
+    function setAnalysisMode(mode) {
+      if (!Object.values(ANALYSIS_MODES).includes(mode)) return;
+      state.mode = mode;
+      const buttons = document.querySelectorAll('.mode-btn');
+      buttons.forEach((btn) => {
+        const isActive = btn.dataset.mode === mode;
+        btn.classList.toggle('is-active', isActive);
+        btn.setAttribute('aria-pressed', String(isActive));
+      });
+      const subtitle = document.querySelector('.subtitle');
+      if (subtitle) {
+        subtitle.textContent =
+          mode === ANALYSIS_MODES.opponent
+            ? 'Préparez vos parties contre un adversaire précis'
+            : 'Analysez vos propres débuts et trouvez des gains rapides';
+      }
+      state.latestPrep = null;
+      state.latestPlayer = null;
+      hideResults();
+    }
+
+    async function enrichWithLichessSuggestions(openingsObject, playerElo, chesscomStats, config) {
+      const entries = Object.entries(openingsObject);
+      const speed = determineTargetSpeed(chesscomStats, config.speedOverride);
+      const ratingBucket = pickLichessBucket(playerElo, { offset: config.ratingOffset || 0 });
+
       const topEntries = entries.sort((a, b) => b[1].count - a[1].count).slice(0, 8);
 
-      const promises = topEntries.map(async ([name, stats]) => {
-        // On stocke le dernier pgn tokens qui a produit ce name pour lancer la requête
+      const tasks = topEntries.map(async ([name, stats]) => {
         const sampleTokens = stats._sampleTokens || null;
-        if (!sampleTokens) return;
-
+        if (!sampleTokens?.length) return;
         try {
           const trait = sideToMoveAfter(sampleTokens);
           const out = await adviseFromLichess({
             tokens: sampleTokens,
             sideToMove: trait,
             playerRating: playerElo,
-            // offset si tu veux compenser la diff Chess.com/Lichess; 0 par défaut. Mets +100 si tu veux.
-            ratingOffset: 0,
+            ratingOffset: config.ratingOffset || 0,
             speed,
-            top: 5
+            top: 5,
           });
-          stats._lichess = out; // on attache pour l’UI
-        } catch (e) {
-          console.warn('Explorer fail for', name, e);
+          if (out) {
+            out.ratingBucket = ratingBucket;
+            out.speed = speed;
+            stats._lichess = out;
+          }
+        } catch (err) {
+          console.warn('Explorer Lichess en échec pour', name, err?.status || '', err?.url || '', err);
         }
       });
 
-      // Use Promise.allSettled to prevent unhandled rejections
-      await Promise.allSettled(promises);
+      await Promise.allSettled(tasks);
+      return { speed, ratingBucket };
     }
 
-    async function analyzePlayer() {
+    function formatScoreLabel(score) {
+      if (!score) return null;
+      if (score.type === 'mate') {
+        const sign = score.value > 0 ? '+' : '';
+        return `#${sign}${score.value}`;
+      }
+      if (score.type === 'cp') {
+        const value = Number(score.value || 0) / 100;
+        return `${value.toFixed(2)}`;
+      }
+      return null;
+    }
+
+    async function annotateWithGmTheory(openingsObject, {
+      playerColor,
+      config,
+      ratingBucket,
+      speed,
+    }) {
+      const gmConfig = {
+        gmMode: config.gmMode,
+        gmTopK: config.gmTopK,
+        coverageThreshold: config.gmCoverage,
+        minMasterGames: config.minMasterGames,
+      };
+      const entries = Object.entries(openingsObject)
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, 6);
+      const ourSide = playerColor === 'white' ? 'black' : 'white';
+
+      for (const [name, stats] of entries) {
+        if (!stats._samplePgn) continue;
+        const tokens = Array.isArray(stats._sampleTokens)
+          ? stats._sampleTokens
+          : normalizeToTokens(stats._samplePgn).slice(0, 24);
+        try {
+          const gmHits = await detectGmDeviationsFromPgn({
+            pgn: stats._samplePgn,
+            playerColor,
+            limitPlies: 32,
+            gmConfig,
+          });
+          const outOfBook = [];
+          for (const item of gmHits) {
+            const evaluation = item?.evaluation;
+            if (!evaluation?.considered || evaluation.inBook !== false) continue;
+            const tokensBefore = tokens.slice(0, item.ply.ply);
+            let recommendation = null;
+            let alternatives = [];
+            let recommendationSource = 'lichess';
+
+            try {
+              const data = await fetchExplorer({
+                fen: item.ply.fenAfter,
+                speeds: [speed],
+                ratings: [ratingBucket],
+              });
+              const moves = scoreMoves(data, ourSide).slice(0, 3);
+              if (moves.length) {
+                recommendation = moves[0];
+                alternatives = moves;
+              }
+            } catch (err) {
+              console.warn('Explorer suggestions indisponibles pour réponse GM', err?.status || '', err?.url || '', err);
+            }
+
+            if ((!recommendation || recommendation.total < 10) && config.engine?.enabled) {
+              const engineResult = await engineManager.evaluateFen(item.ply.fenAfter, {
+                depth: config.engine.depth,
+                multipv: config.engine.multipv,
+              });
+              if (engineResult?.lines?.length) {
+                const primary = engineResult.lines[0];
+                if (primary?.pvSan?.length) {
+                  const sanitizedPv = sanitizeSanSequence(primary.pvSan);
+                  recommendation = {
+                    san: sanitizedPv[0] || primary.pvSan[0],
+                    uci: primary.pvUci?.[0] || engineResult.bestmove,
+                    engineScore: primary.score,
+                    pvSan: sanitizedPv,
+                    pvUci: primary.pvUci,
+                  };
+                  alternatives = engineResult.lines.map((line) => {
+                    const sanLine = sanitizeSanSequence(line.pvSan);
+                    return {
+                      san: sanLine[0] || line.pvSan[0],
+                      uci: line.pvUci?.[0],
+                      engineScore: line.score,
+                      pvSan: sanLine,
+                      pvUci: line.pvUci,
+                    };
+                  });
+                  recommendationSource = 'engine';
+                }
+              }
+            }
+
+            if (!recommendation) continue;
+
+            outOfBook.push({
+              ply: item.ply,
+              evaluation,
+              masters: item.masters,
+              recommendation,
+              recommendationSource,
+              alternatives,
+              tokensBefore,
+            });
+          }
+          if (outOfBook.length) {
+            stats._gmOutOfBook = outOfBook;
+          }
+        } catch (err) {
+          console.warn('Analyse théorie GM impossible pour', name, err);
+        }
+      }
+    }
+
+    async function computeImprovementPlans(openingsObject, {
+      playerColor,
+      ratingBucket,
+      speed,
+      threshold = 0.08,
+      engineConfig = {},
+    }) {
+      const entries = Object.entries(openingsObject)
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, 5);
+      for (const [name, stats] of entries) {
+        if (!stats._samplePgn) continue;
+        const tokens = Array.isArray(stats._sampleTokens)
+          ? stats._sampleTokens
+          : normalizeToTokens(stats._samplePgn).slice(0, 28);
+        const plies = extractPliesFromPgn(stats._samplePgn, 32).filter(
+          (ply) => ply.color === playerColor
+        );
+        const improvements = [];
+        for (const ply of plies) {
+          try {
+            const data = await fetchExplorer({
+              fen: ply.fenBefore,
+              speeds: [speed],
+              ratings: [ratingBucket],
+            });
+            const moves = scoreMoves(data, playerColor).slice(0, 5);
+            if (!moves.length) continue;
+            const ourMove = moves.find((m) => m.uci === ply.uci);
+            const best = moves[0];
+            if (!best) continue;
+            const ourScore = ourMove ? ourMove.sideExpectedScore : 0;
+            const delta = best.sideExpectedScore - ourScore;
+            let recommendation = best;
+            let alternatives = moves;
+            let recommendationSource = 'lichess';
+
+            if ((moves[0]?.total || 0) < 10 && engineConfig.enabled) {
+              const engineResult = await engineManager.evaluateFen(ply.fenBefore, {
+                depth: engineConfig.depth,
+                multipv: engineConfig.multipv,
+              });
+              if (engineResult?.lines?.length) {
+                const primary = engineResult.lines[0];
+                if (primary?.pvSan?.length) {
+                  const sanitizedPv = sanitizeSanSequence(primary.pvSan);
+                  recommendation = {
+                    san: sanitizedPv[0] || primary.pvSan[0],
+                    uci: primary.pvUci?.[0] || engineResult.bestmove,
+                    engineScore: primary.score,
+                    pvSan: sanitizedPv,
+                    pvUci: primary.pvUci,
+                  };
+                  alternatives = engineResult.lines.map((line) => {
+                    const sanLine = sanitizeSanSequence(line.pvSan);
+                    return {
+                      san: sanLine[0] || line.pvSan[0],
+                      uci: line.pvUci?.[0],
+                      engineScore: line.score,
+                      pvSan: sanLine,
+                      pvUci: line.pvUci,
+                    };
+                  });
+                  recommendationSource = 'engine';
+                }
+              }
+            }
+
+            if (delta < threshold && recommendationSource !== 'engine') continue;
+
+            const tokensBefore = tokens.slice(0, Math.max(0, ply.ply - 1));
+            improvements.push({
+              ply,
+              delta,
+              recommendation,
+              recommendationSource,
+              alternatives,
+              tokensBefore,
+              ourMove,
+            });
+            if (improvements.length >= 3) break;
+          } catch (err) {
+            console.warn('Impossible de calculer une amélioration pour', name, err);
+          }
+        }
+        if (improvements.length) {
+          stats._improvements = improvements;
+        }
+      }
+    }
+
+    async function runAnalysis() {
       const usernameInput = document.getElementById('username');
       const btn = document.getElementById('analyzeBtn');
       const username = usernameInput.value.trim();
-      if (!username) return showError('Veuillez entrer un pseudo Chess.com');
+      if (!username) {
+        showError('Veuillez entrer un pseudo Chess.com');
+        return;
+      }
+
+      const config = readAnalysisConfig();
+      state.config = config;
 
       hideError();
       showLoading();
       hideResults();
       btn.disabled = true;
 
+      if (config.engine?.enabled && !config.engine.path) {
+        showError('Chemin du moteur Stockfish requis pour l\'analyse locale');
+        hideLoading();
+        btn.disabled = false;
+        return;
+      }
+
+      if (config.engine?.enabled) {
+        await engineManager.configure({
+          enabled: true,
+          path: config.engine.path,
+          depth: config.engine.depth,
+          multipv: config.engine.multipv,
+        });
+      } else {
+        engineManager.dispose();
+      }
+
       try {
-        // Player + stats en parallèle
-        const base = `https://api.chess.com/pub/player/${encodeURIComponent(username)}`;
-        const { signal, cleanup } = withTimeout(FETCH_TIMEOUT_MS);
-        const [playerRes, statsRes] = await Promise.all([
-          fetch(base, { signal }),
-          fetch(`${base}/stats`, { signal }),
-        ]);
-        cleanup();
+        const context = await fetchPlayerContext(username);
+        const { playerData, statsData, games } = context;
+        const { whiteOpenings, blackOpenings } = aggregateOpenings(games, username);
+        const playerElo = computePlayerRating(statsData);
 
-        if (!playerRes.ok) throw new Error('Joueur non trouvé');
-        const playerData = await playerRes.json();
-        const statsData = statsRes.ok ? await statsRes.json() : {};
+        const whiteMeta = await enrichWithLichessSuggestions(
+          whiteOpenings,
+          playerElo,
+          statsData,
+          config
+        );
+        const blackMeta = await enrichWithLichessSuggestions(
+          blackOpenings,
+          playerElo,
+          statsData,
+          config
+        );
 
-        // Archives des N derniers mois en parallèle
-        const now = new Date();
-        const months = Array.from({ length: MONTHS_TO_CHECK }, (_, i) => {
-          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-          return { y: d.getFullYear(), m: String(d.getMonth() + 1).padStart(2, '0') };
-        });
+        state.speed = whiteMeta?.speed || blackMeta?.speed || determineTargetSpeed(statsData, config.speedOverride);
+        state.ratingBucket = whiteMeta?.ratingBucket || blackMeta?.ratingBucket || pickLichessBucket(playerElo, { offset: config.ratingOffset || 0 });
 
-        const monthFetches = months.map(({ y, m }) => {
-          const { signal, cleanup } = withTimeout(FETCH_TIMEOUT_MS);
-          return fetch(`https://api.chess.com/pub/player/${encodeURIComponent(username)}/games/${y}/${m}`, { signal })
-            .then(r => (cleanup(), r.ok ? r.json() : { games: [] }))
-            .catch(() => ({ games: [] }));
-        });
-
-        const monthPayloads = await Promise.allSettled(monthFetches);
-        const recentGames = monthPayloads.flatMap(res => res.status === 'fulfilled' ? (res.value.games || []) : []);
-
-        if (!recentGames.length) throw new Error('Aucune partie récente trouvée');
-
-        // Filtrer parties standard (pas chess960 etc.)
-        const games = recentGames.filter(g => g.rules ? g.rules === 'chess' : true);
-
-        // Stats par couleurs
-        const whiteOpenings = {};
-        const blackOpenings = {};
-
-        for (const game of games) {
-          if (!game.pgn) continue;
-
-          const youAreWhite = game.white && game.white.username && String(game.white.username).toLowerCase() === username.toLowerCase();
-
-          // Résultat côté "toi"
-          let result = 'draw';
-          if (game.white?.result === 'win') result = youAreWhite ? 'win' : 'loss';
-          else if (game.black?.result === 'win') result = youAreWhite ? 'loss' : 'win';
-
-          const tokens = normalizeToTokens(game.pgn).slice(0, 12);
-          const openingName = getOpeningName(tokens);
-          const targetOpenings = youAreWhite ? whiteOpenings : blackOpenings;
-
-          if (!targetOpenings[openingName]) {
-            targetOpenings[openingName] = { count: 0, wins: 0, draws: 0, losses: 0, _sampleTokens: tokens, traps: [] };
-          } else if (!targetOpenings[openingName]._sampleTokens && tokens?.length) {
-            targetOpenings[openingName]._sampleTokens = tokens;
-          }
-
-          const bucket = targetOpenings[openingName];
-          bucket.count++;
-          if (result === 'win') bucket.wins++;
-          else if (result === 'draw') bucket.draws++;
-          else bucket.losses++;
-
-          // Match des pièges vus dans la partie
-          const yourSide = youAreWhite ? 'white' : 'black';
-          const trapScan = trapEngine.matchPgn(game.pgn, { openingLabel: openingName, side: yourSide, maxPlies: 24 });
-          if (trapScan.hits.length) {
-            bucket.traps.push(...trapScan.hits.slice(0, 2));
-            bucket.isTrap = true;
-          }
+        if (state.mode === ANALYSIS_MODES.opponent) {
+          await annotateWithGmTheory(whiteOpenings, {
+            playerColor: 'white',
+            config,
+            ratingBucket: state.ratingBucket,
+            speed: state.speed,
+          });
+          await annotateWithGmTheory(blackOpenings, {
+            playerColor: 'black',
+            config,
+            ratingBucket: state.ratingBucket,
+            speed: state.speed,
+          });
+        } else {
+          await annotateWithGmTheory(whiteOpenings, {
+            playerColor: 'white',
+            config,
+            ratingBucket: state.ratingBucket,
+            speed: state.speed,
+          });
+          await annotateWithGmTheory(blackOpenings, {
+            playerColor: 'black',
+            config,
+            ratingBucket: state.ratingBucket,
+            speed: state.speed,
+          });
+          await computeImprovementPlans(whiteOpenings, {
+            playerColor: 'white',
+            ratingBucket: state.ratingBucket,
+            speed: state.speed,
+            threshold: 0.08,
+            engineConfig: config.engine,
+          });
+          await computeImprovementPlans(blackOpenings, {
+            playerColor: 'black',
+            ratingBucket: state.ratingBucket,
+            speed: state.speed,
+            threshold: 0.08,
+            engineConfig: config.engine,
+          });
         }
 
-        // Récup Elo côté Chess.com pour approx du bucket
-        const userElo = Math.max(
-          statsData?.chess_blitz?.last?.rating || 0,
-          statsData?.chess_rapid?.last?.rating || 0,
-          statsData?.chess_bullet?.last?.rating || 0
-        ) || 1500;
-
-        await enrichWithLichessSuggestions(whiteOpenings, userElo, statsData);
-        await enrichWithLichessSuggestions(blackOpenings, userElo, statsData);
+        state.latestPrep = {
+          mode: state.mode,
+          player: playerData,
+          stats: statsData,
+          whiteOpenings,
+          blackOpenings,
+          speed: state.speed,
+          ratingBucket: state.ratingBucket,
+          config,
+        };
+        state.latestPlayer = playerData;
 
         displayPlayerInfo(playerData, statsData);
-        displayOpenings(whiteOpenings, blackOpenings);
-
+        displayOpenings(whiteOpenings, blackOpenings, state.mode);
+        showPrepActions();
       } catch (err) {
         showError(err.message || 'Erreur inconnue');
       } finally {
@@ -1186,15 +2224,22 @@
     }
 
     // ------------ UI ------------
-    function renderLichessAdvice(stats, orientation = 'white') {
+    function renderLichessAdvice(stats, { orientation = 'white', side = 'white', mode = state.mode } = {}) {
       if (!stats._lichess?.suggestions?.length) return '';
       const o = stats._lichess;
       const tag = o.openingName ? ` (${o.openingName}${o.eco ? ' – ' + o.eco : ''})` : '';
       const baseTokens = Array.isArray(stats._sampleTokens) ? stats._sampleTokens : [];
+      const ourSide = mode === ANALYSIS_MODES.opponent ? (side === 'white' ? 'black' : 'white') : side;
       const items = o.suggestions.slice(0, 3).map(s => {
-        const tokens = [...baseTokens, s.san].filter(Boolean);
+        const tokens = sanitizeSanSequence([...baseTokens, s.san].filter(Boolean));
         const { html, info } = buildLinePreview(tokens, { limit: baseTokens.length + 1, orientation });
         const fallbackText = info.line || s.san;
+        const trapScan = trapEngine.matchTokens(tokens, {
+          openingLabel: '',
+          side: ourSide,
+          maxPlies: tokens.length + 4,
+        });
+        const trapBadge = trapScan.hits.length ? '<span class="badge badge-trap">Piège dispo</span>' : '';
         const button = html || `
           <button
             type="button"
@@ -1211,7 +2256,7 @@
         return `
           <li>
             ${button}
-            <div class="line-meta">Score attendu ${score}% · ${s.total} parties</div>
+            <div class="line-meta">Score attendu ${score}% · ${s.total} parties ${trapBadge}</div>
           </li>
         `;
       }).join('');
@@ -1220,6 +2265,124 @@
           <summary>Coups recommandés (Lichess)${tag}</summary>
           <ul>${items}</ul>
         </details>
+      `;
+    }
+
+    function buildPreviewButton(tokens, { orientation }) {
+      const { html, info } = buildLinePreview(tokens, { limit: tokens.length + 1, orientation });
+      if (html) return html;
+      const fallbackText = info.line || tokens.join(' ');
+      return `
+        <button
+          type="button"
+          class="line-preview"
+          data-line="${escapeHtml(fallbackText)}"
+          data-orientation="${orientation}"
+          ${info.moves?.length ? `data-moves="${escapeHtml(info.moves.join('|'))}"` : ''}
+          ${info.fen ? `data-fen="${escapeHtml(info.fen)}"` : ''}
+        >
+          ${escapeHtml(fallbackText)}
+        </button>
+      `;
+    }
+
+    function renderGmOutOfBook(stats, { orientation, side, mode }) {
+      const entries = Array.isArray(stats._gmOutOfBook) ? stats._gmOutOfBook : [];
+      if (!entries.length) return '';
+      const ourSide = mode === ANALYSIS_MODES.opponent ? (side === 'white' ? 'black' : 'white') : side;
+      const items = entries.slice(0, 3).map((entry) => {
+        const moveLabel = `${entry.ply.moveNumber}${entry.ply.color === 'white' ? '.' : '...'} ${escapeHtml(entry.ply.san)}`;
+        const coverage = entry.evaluation?.coverage != null
+          ? `Couverture GM ${Math.round((entry.evaluation.coverage || 0) * 100)}%`
+          : '';
+        const totalMasters = entry.evaluation?.total ? `${entry.evaluation.total} parties` : '';
+        const recommendation = entry.recommendation || {};
+        const recommendationSan = recommendation.san || (Array.isArray(recommendation.pvSan) ? recommendation.pvSan[0] : '');
+        const sourceTag = entry.recommendationSource === 'engine'
+          ? '<span class="source-tag">Moteur local</span>'
+          : '<span class="source-tag">Explorer Lichess</span>';
+        const scoreLabel = recommendation.engineScore ? formatScoreLabel(recommendation.engineScore) : null;
+        const tokens = sanitizeSanSequence([
+          ...(entry.tokensBefore || []),
+          ...(Array.isArray(recommendation.pvSan) && recommendation.pvSan.length
+            ? recommendation.pvSan
+            : recommendationSan
+              ? [recommendationSan]
+              : []),
+        ]);
+        const preview = tokens.length
+          ? buildPreviewButton(tokens, { orientation: ourSide === 'black' ? 'black' : 'white' })
+          : '';
+        const totalVolume = entry.evaluation?.total || 0;
+        const gmMoves = totalVolume && Array.isArray(entry.evaluation?.pickedMoves)
+          ? entry.evaluation.pickedMoves
+              .map((m) => `${escapeHtml(m.san || '')} (${Math.round((m.volume / totalVolume) * 100)}%)`)
+              .join(', ')
+          : '';
+
+        return `
+          <div class="gm-entry">
+            <div class="gm-entry-title">${moveLabel} — ${sourceTag}</div>
+            <div class="gm-meta">
+              ${coverage ? `<span>${coverage}</span>` : ''}
+              ${totalMasters ? `<span>· ${totalMasters}</span>` : ''}
+              ${gmMoves ? `<span>· Refs GM: ${gmMoves}</span>` : ''}
+              ${scoreLabel ? `<span>· Eval ${escapeHtml(scoreLabel)}</span>` : ''}
+            </div>
+            <div class="gm-reco">
+              ${preview}
+            </div>
+          </div>
+        `;
+      }).join('');
+      return `
+        <div class="gm-section">
+          <div class="gm-entry-title">Sorties de théorie GM</div>
+          ${items}
+        </div>
+      `;
+    }
+
+    function renderImprovements(stats, { orientation, side }) {
+      const entries = Array.isArray(stats._improvements) ? stats._improvements : [];
+      if (!entries.length) return '';
+      const items = entries.map((entry) => {
+        const moveLabel = `${entry.ply.moveNumber}${entry.ply.color === 'white' ? '.' : '...'} ${escapeHtml(entry.ply.san)}`;
+        const recommendedSan = entry.recommendation?.san || (Array.isArray(entry.recommendation?.pvSan) ? entry.recommendation.pvSan[0] : '');
+        const sourceTag = entry.recommendationSource === 'engine'
+          ? '<span class="source-tag">Moteur local</span>'
+          : '<span class="source-tag">Explorer Lichess</span>';
+        const scoreLabel = entry.recommendation?.engineScore ? formatScoreLabel(entry.recommendation.engineScore) : null;
+        const tokens = sanitizeSanSequence([
+          ...(entry.tokensBefore || []),
+          ...(Array.isArray(entry.recommendation?.pvSan) && entry.recommendation.pvSan.length
+            ? entry.recommendation.pvSan
+            : recommendedSan ? [recommendedSan] : []),
+        ]);
+        const preview = tokens.length
+          ? buildPreviewButton(tokens, { orientation })
+          : '';
+        const deltaLabel = `<span class="delta-positive">+${(entry.delta * 100).toFixed(1)}%</span>`;
+
+        return `
+          <div class="improvement-entry">
+            <div class="improvement-entry-title">${moveLabel} — vous avez joué <strong>${escapeHtml(entry.ourMove?.san || entry.ply.san)}</strong></div>
+            <div class="improvement-meta">
+              ${sourceTag}
+              <span>· Gain attendu ${deltaLabel}</span>
+              ${scoreLabel ? `<span>· Eval ${escapeHtml(scoreLabel)}</span>` : ''}
+            </div>
+            <div class="improvement-reco">
+              ${preview}
+            </div>
+          </div>
+        `;
+      }).join('');
+      return `
+        <div class="improvement-section">
+          <div class="gm-entry-title">Axes d'amélioration recommandés</div>
+          ${items}
+        </div>
       `;
     }
 
@@ -1244,14 +2407,20 @@
       playerInfoDiv.style.display = 'block';
     }
 
-    function formatOpeningRow(name, stats, extraHtml = '', side = 'white') {
+    function formatOpeningRow(name, stats, extraHtml = '', side = 'white', mode = state.mode) {
       const winRate = stats.count ? ((stats.wins / stats.count) * 100).toFixed(1) : '0.0';
       const drawRate = stats.count ? ((stats.draws / stats.count) * 100).toFixed(1) : '0.0';
       const lossRate = stats.count ? ((stats.losses / stats.count) * 100).toFixed(1) : '0.0';
       const safeName = escapeHtml(name);
-      const labelHtml = stats.isTrap ? `<span class="trap-name">${safeName}</span>` : safeName;
+      const badges = [];
+      if (stats._gmOutOfBook?.length) badges.push('<span class="badge badge-gm">Hors théorie</span>');
+      if (mode === ANALYSIS_MODES.self && stats._improvements?.length) badges.push('<span class="badge badge-improve">Axes +score</span>');
+      const badgesHtml = badges.length ? ` ${badges.join(' ')}` : '';
+      const labelHtml = `${stats.isTrap ? `<span class="trap-name">${safeName}</span>` : safeName}${badgesHtml}`;
       const { line: mainLineText, moves: mainMoves } = tokensToLineInfo(stats._sampleTokens || [], { limit: 30 });
-      const orientation = side === 'black' ? 'black' : 'white';
+      const orientation = mode === ANALYSIS_MODES.opponent
+        ? side === 'white' ? 'black' : 'white'
+        : side === 'black' ? 'black' : 'white';
       const dataMainMoves = mainMoves?.length
         ? ` data-main-moves="${escapeHtml(mainMoves.join('|'))}"`
         : '';
@@ -1280,9 +2449,11 @@
           `;
     }
 
-    function buildOpeningSections(name, stats, side) {
+    function buildOpeningSections(name, stats, side, mode = state.mode) {
       const sections = [];
-      const orientation = side === 'black' ? 'black' : 'white';
+      const orientation = mode === ANALYSIS_MODES.opponent
+        ? side === 'white' ? 'black' : 'white'
+        : side === 'black' ? 'black' : 'white';
       const mainLine = renderMainLine(stats._sampleTokens || [], orientation);
       if (mainLine) sections.push(mainLine);
 
@@ -1293,13 +2464,21 @@
       const recsHtml = renderTrapRecommendations(recs, orientation);
       if (recsHtml) sections.push(recsHtml);
 
-      const lichessHtml = renderLichessAdvice(stats, orientation);
+      const lichessHtml = renderLichessAdvice(stats, { orientation, side, mode });
       if (lichessHtml) sections.push(lichessHtml);
+
+      const gmHtml = renderGmOutOfBook(stats, { orientation, side, mode });
+      if (gmHtml) sections.push(gmHtml);
+
+      if (mode === ANALYSIS_MODES.self) {
+        const improvementHtml = renderImprovements(stats, { orientation, side });
+        if (improvementHtml) sections.push(improvementHtml);
+      }
 
       return sections.join('');
     }
 
-    function displayOpenings(whiteOpenings, blackOpenings) {
+    function displayOpenings(whiteOpenings, blackOpenings, mode = state.mode) {
       const whiteDiv = document.getElementById('whiteOpenings');
       const blackDiv = document.getElementById('blackOpenings');
 
@@ -1308,15 +2487,15 @@
 
       whiteDiv.innerHTML = sortedWhite.length
         ? sortedWhite.slice(0, 10).map(([name, stats]) => {
-          const sections = buildOpeningSections(name, stats, 'white');
-          return formatOpeningRow(name, stats, sections, 'white');
+          const sections = buildOpeningSections(name, stats, 'white', mode);
+          return formatOpeningRow(name, stats, sections, 'white', mode);
         }).join('')
         : '<div class="no-data">Aucune donnée disponible</div>';
 
       blackDiv.innerHTML = sortedBlack.length
         ? sortedBlack.slice(0, 10).map(([name, stats]) => {
-          const sections = buildOpeningSections(name, stats, 'black');
-          return formatOpeningRow(name, stats, sections, 'black');
+          const sections = buildOpeningSections(name, stats, 'black', mode);
+          return formatOpeningRow(name, stats, sections, 'black', mode);
         }).join('')
         : '<div class="no-data">Aucune donnée disponible</div>';
 
@@ -1340,8 +2519,131 @@
     function hideResults() {
       document.getElementById('playerInfo').style.display = 'none';
       document.getElementById('openingsSection').style.display = 'none';
+      document.getElementById('prepActions').style.display = 'none';
       pinnedAnchor = null;
       hideBoardPreview();
+    }
+
+    function showPrepActions() {
+      document.getElementById('prepActions').style.display = 'flex';
+    }
+
+    function topOpenings(openings, limit = 3) {
+      return Object.entries(openings || {})
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, limit);
+    }
+
+    function downloadBlob(filename, blob) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 0);
+    }
+
+    function buildMarkdown(prep) {
+      const lines = [];
+      const playerName = prep.player?.username || 'Joueur';
+      lines.push(`# Préparation ${playerName}`);
+      lines.push('');
+      lines.push(`- Mode : ${prep.mode === ANALYSIS_MODES.opponent ? 'Adversaire' : 'Analyse perso'}`);
+      lines.push(`- Cadence cible : ${prep.speed}`);
+      lines.push(`- Bucket Lichess : ${prep.ratingBucket}`);
+      lines.push('');
+
+      const sections = [
+        { label: 'Plans contre ses Blancs', items: topOpenings(prep.whiteOpenings) },
+        { label: 'Plans contre ses Noirs', items: topOpenings(prep.blackOpenings) },
+      ];
+
+      for (const section of sections) {
+        if (!section.items.length) continue;
+        lines.push(`## ${section.label}`);
+        lines.push('');
+        for (const [name, stats] of section.items) {
+          lines.push(`### ${name} (${stats.count} parties)`);
+          if (stats._lichess?.suggestions?.length) {
+            lines.push('**Coups recommandés :**');
+            for (const sug of stats._lichess.suggestions.slice(0, 3)) {
+              const score = Math.round((sug.sideExpectedScore || 0) * 100);
+              lines.push(`- ${sug.san} · score ${score}% (${sug.total} parties)`);
+            }
+          }
+          if (Array.isArray(stats._gmOutOfBook) && stats._gmOutOfBook.length) {
+            lines.push('**Sorties de théorie GM :**');
+            for (const gm of stats._gmOutOfBook) {
+              const san = gm.recommendation?.san || (gm.recommendation?.pvSan?.[0] || '');
+              const coverage = gm.evaluation?.coverage != null ? `${Math.round((gm.evaluation.coverage || 0) * 100)}%` : 'n/a';
+              lines.push(`- ${gm.ply.moveNumber}${gm.ply.color === 'white' ? '.' : '...'} ${gm.ply.san} → jouer ${san} (couverture GM ${coverage})`);
+            }
+          }
+          if (Array.isArray(stats._improvements) && stats._improvements.length) {
+            lines.push('**Axes d’amélioration :**');
+            for (const imp of stats._improvements) {
+              const san = imp.recommendation?.san || (imp.recommendation?.pvSan?.[0] || '');
+              lines.push(`- ${imp.ply.moveNumber}${imp.ply.color === 'white' ? '.' : '...'} ${imp.ply.san} → préférer ${san} (gain +${(imp.delta * 100).toFixed(1)}%)`);
+            }
+          }
+          lines.push('');
+        }
+      }
+      return lines.join('\n');
+    }
+
+    function exportPrep(format) {
+      const prep = state.latestPrep;
+      if (!prep) {
+        showError('Aucune analyse à exporter pour le moment');
+        return;
+      }
+      const playerName = prep.player?.username || 'joueur';
+      if (format === 'json') {
+        const blob = new Blob([JSON.stringify(prep, null, 2)], { type: 'application/json' });
+        downloadBlob(`prep-${playerName}.json`, blob);
+        return;
+      }
+      if (format === 'markdown') {
+        const markdown = buildMarkdown(prep);
+        const blob = new Blob([markdown], { type: 'text/markdown' });
+        downloadBlob(`prep-${playerName}.md`, blob);
+        return;
+      }
+      if (format === 'pdf') {
+        const markdown = buildMarkdown(prep);
+        const win = window.open('', '_blank');
+        if (!win) {
+          showError('Impossible d\'ouvrir la fenêtre d\'export PDF');
+          return;
+        }
+        win.document.write(`
+          <html>
+            <head>
+              <title>Préparation ${playerName}</title>
+              <style>
+                body { font-family: 'Segoe UI', sans-serif; padding: 32px; color: #111827; }
+                h1 { font-size: 28px; margin-bottom: 16px; }
+                h2 { margin-top: 24px; font-size: 22px; }
+                h3 { margin-top: 18px; font-size: 18px; }
+                ul { margin-left: 20px; }
+                pre { white-space: pre-wrap; }
+              </style>
+            </head>
+            <body>
+              <pre>${markdown.replace(/</g, '&lt;')}</pre>
+            </body>
+          </html>
+        `);
+        win.document.close();
+        setTimeout(() => {
+          win.print();
+        }, 250);
+      }
     }
 
     // ------------ BOARD PREVIEW ------------
@@ -1703,9 +3005,19 @@
 
     // ------------ EVENTS ------------
     document.getElementById('username').addEventListener('keydown', e => {
-      if (e.key === 'Enter') analyzePlayer();
+      if (e.key === 'Enter') runAnalysis();
     });
-    document.getElementById('analyzeBtn').addEventListener('click', analyzePlayer);
+    document.getElementById('analyzeBtn').addEventListener('click', runAnalysis);
+    document.getElementById('modeOpponent').addEventListener('click', () => setAnalysisMode(ANALYSIS_MODES.opponent));
+    document.getElementById('modeSelf').addEventListener('click', () => setAnalysisMode(ANALYSIS_MODES.self));
+    document.getElementById('gmMode').addEventListener('change', updateGmOptionVisibility);
+    document.getElementById('engineEnabled').addEventListener('change', updateEngineControlsAvailability);
+    updateGmOptionVisibility();
+    updateEngineControlsAvailability();
+    setAnalysisMode(state.mode);
+    document.getElementById('exportJsonBtn').addEventListener('click', () => exportPrep('json'));
+    document.getElementById('exportMarkdownBtn').addEventListener('click', () => exportPrep('markdown'));
+    document.getElementById('exportPdfBtn').addEventListener('click', () => exportPrep('pdf'));
   </script>
 
 </body>
