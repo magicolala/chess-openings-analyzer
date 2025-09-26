@@ -986,6 +986,7 @@
     } from './lichess-explorer.js';
     import { registerEcoOpenings } from './eco-pack-xl.js';
     import { TrapEngine, TRAP_PACK } from './trap-engine.js';
+    import { ULTRA_TRAPS } from './trap-pack-ultra.js';
 
     class EngineManager {
       constructor() {
@@ -1375,7 +1376,7 @@
     registerEcoOpenings(ECO_OPENINGS, { includeTraps: true });
 
     const trapEngine = new TrapEngine();
-    trapEngine.register(TRAP_PACK);
+    trapEngine.register([...TRAP_PACK, ...ULTRA_TRAPS]);
 
     const engineManager = new EngineManager();
 
