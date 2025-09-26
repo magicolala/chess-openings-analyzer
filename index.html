@@ -404,7 +404,10 @@
       word-break: break-word;
     }
   </style>
-  <script type="module" src="https://cdn.jsdelivr.net/npm/chessboard-element@1/chessboard-element.js"></script>
+  <script
+    type="module"
+    src="https://cdn.jsdelivr.net/npm/chessboard-element@1/dist/chessboard-element.js"
+  ></script>
 </head>
 
 <body>
@@ -712,27 +715,42 @@
     function normalizeToTokens(pgn) {
       if (!pgn || typeof pgn !== 'string') return [];
 
+      try {
+        const chess = new Chess();
+        const loaded = chess.load_pgn(pgn, { sloppy: true });
+        if (loaded) {
+          return chess.history({ verbose: true }).map(move =>
+            (move?.san || '')
+              .replace(/[+#]/g, '')
+          );
+        }
+      } catch (err) {
+        console.warn('Failed to parse PGN via chess.js', err);
+      }
+
       let s = pgn
-        .replace(/\{[^}]*\}/g, ' ')     // commentaires
-        .replace(/;.*/g, ' ')           // ; jusqu’à fin de ligne
-        .replace(/\([^)]*\)/g, ' ')     // variantes
-        .replace(/\$\d+/g, ' ');        // NAGs
+        .replace(/\{[^}]*\}/g, ' ')
+        .replace(/;.*/g, ' ')
+        .replace(/\([^)]*\)/g, ' ')
+        .replace(/\$\d+/g, ' ');
 
       s = s.replace(/\b(1-0|0-1|1\/2-1\/2|\*)\b/g, ' ');
       s = s.replace(/\d+\.(\.\.)?/g, ' ');
-      s = s.replace(/x/g, '');
       s = s.replace(/[+#]/g, '');
-      s = s.replace(/=([QRNB])\b/g, '');
       s = s.replace(/\s+/g, ' ').trim();
 
       if (!s) return [];
 
-      const tokens = s.split(' ').filter(tok =>
-        /^[O0]-O(-O)?$/.test(tok) ||
-        /^[KQRNB]?[a-h]?[1-8]?[a-h][1-8]$/.test(tok) ||
-        /^[a-h][1-8]$/.test(tok) ||
-        /^[KQRNB][a-h][1-8]$/.test(tok)
-      ).map(tok => tok.replace(/^0-0$/, 'O-O').replace(/^0-0-0$/, 'O-O-O'));
+      const tokens = s
+        .split(' ')
+        .filter(tok =>
+          /^[O0]-O(-O)?$/.test(tok) ||
+          /^[KQRNB]?[a-h]?[1-8]?x?[a-h][1-8](=[QRNB])?$/.test(tok) ||
+          /^[a-h]x?[a-h][1-8](=[QRNB])?$/.test(tok) ||
+          /^[a-h][1-8]$/.test(tok) ||
+          /^[KQRNB][a-h][1-8]$/.test(tok)
+        )
+        .map(tok => tok.replace(/^0-0$/, 'O-O').replace(/^0-0-0$/, 'O-O-O'));
 
       return tokens;
     }
