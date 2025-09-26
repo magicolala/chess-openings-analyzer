@@ -1,8 +1,8 @@
-// lichess-explorer.js — outils Explorer & Masters
-// npm i chess.js  (ou <script type="module" src="https://cdn.jsdelivr.net/npm/chess.js@1/dist/chess.min.js">)
-import { Chess } from "https://esm.sh/chess.js";
+// @ts-nocheck
+// lichess-explorer.ts — outils Explorer & Masters adaptés pour TypeScript
+import { Chess } from 'chess.js';
 
-export function loadPgnCompat(chessInstance, pgn, options) {
+export function loadPgnCompat(chessInstance: Chess, pgn: string, options?: Record<string, unknown>) {
   const loader = typeof chessInstance.loadPgn === "function"
     ? chessInstance.loadPgn
     : typeof chessInstance.load_pgn === "function"
@@ -18,8 +18,18 @@ const BASE = "https://explorer.lichess.ovh/lichess";
 const MASTER_BASE = "https://explorer.lichess.ovh/master";
 const RATING_BUCKETS = [400, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2500];
 
-const explorerCache = new Map();
-const masterCache = new Map();
+type SpeedCategory = 'bullet' | 'blitz' | 'rapid' | 'correspondence';
+
+export interface ExplorerRequest {
+  fen?: string;
+  uciMoves?: string[];
+  speeds?: SpeedCategory[];
+  ratings?: number[];
+  variant?: string;
+}
+
+const explorerCache = new Map<string, any>();
+const masterCache = new Map<string, any>();
 
 export const LICHESS_MIN_EXPECTED_SCORE = 0.57;
 
@@ -417,4 +427,34 @@ export async function detectGmDeviationsFromPgn({
     });
   }
   return results;
+}
+
+export class LichessExplorerService {
+  fetchExplorer(params) {
+    return fetchExplorer(params);
+  }
+
+  fetchExplorerByFen(params) {
+    return fetchExplorerByFen(params);
+  }
+
+  fetchExplorerByPlay(params) {
+    return fetchExplorerByPlay(params);
+  }
+
+  fetchLichessMasters(fen) {
+    return fetchLichessMasters(fen);
+  }
+
+  scoreMoves(data, sideToMove = "white", options = {}) {
+    return scoreMoves(data, sideToMove, options);
+  }
+
+  adviseFromLichess(params) {
+    return adviseFromLichess(params);
+  }
+
+  detectGmDeviationsFromPgn(params) {
+    return detectGmDeviationsFromPgn(params);
+  }
 }
