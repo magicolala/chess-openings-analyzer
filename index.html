@@ -1631,17 +1631,35 @@
       const sanitized = sanitizeSanSequence(tokens);
       const chess = new Chess();
       const cleaned = [];
+      let warned = false;
       for (const san of sanitized) {
         if (!san) continue;
+        let played;
         try {
-          const played = chess.move(san, { sloppy: true });
-          if (!played) break;
-          const canonical = String(played.san || san).replace(/[+#?!]/g, '');
-          cleaned.push(canonical);
+          played = chess.move(san, { sloppy: true });
         } catch (err) {
-          console.warn('Unable to apply SAN token', san, err);
+          if (!cleaned.length) {
+            // Certains PGN tronqués commencent côté noir : on ignore le coup invalide et on poursuit.
+            continue;
+          }
+          if (!warned) {
+            console.warn('Unable to apply SAN token', san, err);
+            warned = true;
+          }
           break;
         }
+        if (!played) {
+          if (!cleaned.length) {
+            continue;
+          }
+          if (!warned) {
+            console.warn('Unable to apply SAN token', san);
+            warned = true;
+          }
+          break;
+        }
+        const canonical = String(played.san || san).replace(/[+#?!]/g, '');
+        cleaned.push(canonical);
       }
       return cleaned;
     }
