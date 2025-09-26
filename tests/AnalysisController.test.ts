@@ -19,7 +19,6 @@ describe('AnalysisController', () => {
   };
 
   const trapService = {
-    registerDefaults: vi.fn(),
     matchPgn: vi.fn().mockReturnValue({ hits: [] }),
     matchTokens: vi.fn().mockReturnValue({ hits: [] }),
     recommendByOpening: vi.fn().mockReturnValue([]),

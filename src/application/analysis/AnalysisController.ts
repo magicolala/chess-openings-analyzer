@@ -11,7 +11,7 @@ import {
   sanitizeSanSequence,
   scoreMoves,
 } from '../../infrastructure/lichess/LichessExplorerService';
-import { TrapService } from '../../infrastructure/traps/TrapService';
+import type { ITrapService } from '../../domain/traps/ITrapService';
 import type { IEngineService } from '../../infrastructure/engine/EngineManager';
 import { defaultAnalysisState, AnalysisMode } from './state';
 
@@ -562,7 +562,7 @@ async function computeImprovementPlans(openingsObject, {
 interface AnalysisControllerDeps {
   engineService: IEngineService;
   lichessExplorer: unknown;
-  trapService: TrapService;
+  trapService: ITrapService;
   ecoOpenings: Map<string, string>;
 }
 
