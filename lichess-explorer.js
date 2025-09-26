@@ -67,6 +67,14 @@ export function pgnToFenAndUci(pgn, limitPlies = 20) {
   return { fen, uciMoves, plies: uciMoves.length };
 }
 
+export function sanitizeSanSequence(seq = []) {
+  return (seq || []).map((san) =>
+    String(san || "")
+      .trim()
+      .replace(/[+#?!]/g, "")
+  );
+}
+
 function buildUrlFen({
   fen,
   speeds = ["blitz"],
@@ -95,17 +103,44 @@ function buildUrlPlay({
   return u.toString();
 }
 
-async function fetchJson(url) {
-  const r = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!r.ok) {
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchJson(
+  url,
+  {
+    retries = 2,
+    retryDelayMs = 800,
+    retryOnStatuses = [429],
+    headers = { Accept: "application/json" },
+  } = {}
+) {
+  let attempt = 0;
+  let delayMs = retryDelayMs;
+  while (true) {
+    const r = await fetch(url, { headers });
+    if (r.ok) {
+      return r.json();
+    }
+
+    const status = r.status;
+    if (retryOnStatuses.includes(status) && attempt < retries) {
+      const retryAfter = Number(r.headers.get("Retry-After"));
+      const waitMs = Number.isFinite(retryAfter) ? retryAfter * 1000 : delayMs;
+      await wait(waitMs);
+      attempt += 1;
+      delayMs *= 2;
+      continue;
+    }
+
     const body = await r.text().catch(() => "");
-    const e = new Error(`Lichess API failed with status ${r.status}`);
-    e.status = r.status;
+    const e = new Error(`Lichess API failed with status ${status}`);
+    e.status = status;
     e.body = body;
     e.url = url;
     throw e;
   }
-  return r.json();
 }
 
 function explorerCacheKey(prefix, { fen, uciMoves, speeds, ratings, variant }) {
@@ -150,7 +185,7 @@ export async function fetchLichessMasters(fen) {
   if (masterCache.has(cleanFen)) return masterCache.get(cleanFen);
   const url = new URL(MASTER_BASE);
   url.searchParams.set("fen", cleanFen);
-  const data = await fetchJson(url.toString());
+  const data = await fetchJson(url.toString(), { retries: 3, retryDelayMs: 1000 });
   masterCache.set(cleanFen, data);
   return data;
 }
@@ -187,10 +222,14 @@ export async function adviseFromLichess({
   limitPlies = 20,
 }) {
   const c = new Chess();
-  const movesToPlay = tokens.slice(0, limitPlies);
+  const movesToPlay = sanitizeSanSequence(tokens.slice(0, limitPlies));
   for (const move of movesToPlay) {
     try {
-      c.move(move);
+      const played = c.move(move, { sloppy: true });
+      if (!played) {
+        console.warn("Invalid move in tokens:", move);
+        break;
+      }
     } catch (err) {
       console.warn("Invalid move in tokens:", move, err);
       break;
@@ -234,9 +273,10 @@ export async function adviseFromLichessPgn({
   const history = chess.history();
   const tokens = history
     .slice(0, limitPlies)
-    .map((san) => san.replace(/[+#]/g, ""));
+    .map((san) => san)
+    .filter(Boolean);
   return adviseFromLichess({
-    tokens,
+    tokens: sanitizeSanSequence(tokens),
     sideToMove,
     playerRating,
     ratingOffset,
