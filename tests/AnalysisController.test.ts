@@ -1,6 +1,32 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { AnalysisController } from '../src/application/analysis/AnalysisController';
+import { AnalysisController, normalizeToTokens } from '../src/application/analysis/AnalysisController';
 import { AnalysisMode } from '../src/application/analysis/state';
+import { LichessAdviceService } from '../src/application/analysis/services/LichessAdviceService';
+
+function createAdviceService() {
+  const explorerClient = { fetchExplorer: vi.fn() };
+  const mastersClient = {
+    fetchMasters: vi.fn().mockResolvedValue({ moves: [] }),
+    evaluateMoveAgainstGm: vi.fn().mockReturnValue({ considered: false, inBook: null }),
+  } as any;
+  return new LichessAdviceService(explorerClient as any, mastersClient);
+}
+
+describe('normalizeToTokens', () => {
+  it('parses PGNs with figurines, quotes, and ellipses', () => {
+    const adviceService = createAdviceService();
+    const pgn = `[Event "Rated"]
+[Site "https://example.com"]
+[White "Player"]
+[Black "Opponent"]
+[Result "*"]
+
+1. “e4?!” e5 2. ♘f3 Nc6 3. Bb5⁇ 3… a6 4. O-O!? Nf6 *
+`;
+    const tokens = normalizeToTokens(adviceService, pgn);
+    expect(tokens).toEqual(['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'O-O', 'Nf6']);
+  });
+});
 
 function createResponse(payload: any, ok = true) {
   return {
@@ -12,6 +38,7 @@ function createResponse(payload: any, ok = true) {
 }
 
 describe('AnalysisController', () => {
+  const adviceService = createAdviceService();
   const engineService = {
     configure: vi.fn().mockResolvedValue(undefined),
     dispose: vi.fn(),
@@ -35,7 +62,7 @@ describe('AnalysisController', () => {
   const lichessAdvice = {
     pickLichessBucket: vi.fn().mockReturnValue(1600),
     mapSpeed: vi.fn().mockReturnValue('blitz'),
-    sanitizeSanSequence: vi.fn((seq = []) => seq),
+    sanitizeSanSequence: vi.fn((seq = []) => adviceService.sanitizeSanSequence(seq)),
     scoreMoves: vi.fn().mockReturnValue([]),
     adviseFromTokens: vi.fn().mockResolvedValue({
       openingName: null,
@@ -58,7 +85,7 @@ describe('AnalysisController', () => {
     chess_blitz: { last: { rating: 1800 } },
   };
   const sampleGame = {
-    pgn: '1. e4 e5 2. Nf3 Nc6 3. Bb5 a6',
+    pgn: '1. e4⁉ e5 2. ♘f3 Nc6 3. Bb5+ a6',
     white: { username: 'TestUser', result: 'win' },
     black: { username: 'Opponent', result: 'resign' },
     end_time: 0,

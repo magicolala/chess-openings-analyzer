@@ -38,8 +38,65 @@ const FIRST_MOVE_FALLBACK = new Map([
 
 const DEFAULT_START_FEN = new Chess().fen();
 const BLACK_START_FEN = DEFAULT_START_FEN.replace(' w ', ' b ');
+const SAN_COMPARE_STRIP = /[+#?!\s\u200B-\u200D\u2060\uFEFF]/g;
+const PGN_EXTRA_PUNCTUATION = /[†‡‼‽⁇⁈⁉•·‧‣※⁎⁑⁂]/g;
+const PGN_QUOTES = /["'`´’‘“”„«»‹›]/g;
+const PGN_ZERO_WIDTH = /[\u200B-\u200D\u2060\uFEFF]/g;
+const PGN_FIGURINE_MAP = {
+  '♔': 'K',
+  '♕': 'Q',
+  '♖': 'R',
+  '♗': 'B',
+  '♘': 'N',
+  '♙': '',
+  '♚': 'K',
+  '♛': 'Q',
+  '♜': 'R',
+  '♝': 'B',
+  '♞': 'N',
+  '♟': '',
+};
+const PGN_FIGURINE_REGEX = /[♔♕♖♗♘♙♚♛♜♝♞♟]/g;
 
-function canonicalizeOpeningTokens(
+function normalizeSanForComparison(rawSan) {
+  if (!rawSan) return '';
+  return String(rawSan)
+    .normalize('NFKC')
+    .replace(/[–—−]/g, '-')
+    .replace(SAN_COMPARE_STRIP, '')
+    .replace(/0/g, 'O')
+    .toLowerCase();
+}
+
+function playSanMove(chess, san) {
+  if (!san) return null;
+  const candidate = String(san).trim();
+  if (!candidate) return null;
+  try {
+    const played = chess.move(candidate, { sloppy: true });
+    if (played) {
+      return played;
+    }
+  } catch (err) {
+    // fall through to comparison-based matching
+  }
+  const normalizedTarget = normalizeSanForComparison(candidate);
+  if (!normalizedTarget) return null;
+  const moves = chess.moves({ verbose: true });
+  for (const move of moves) {
+    const normalizedSan = normalizeSanForComparison(move.san);
+    if (normalizedSan && normalizedSan === normalizedTarget) {
+      const attempt = { from: move.from, to: move.to };
+      if (move.promotion) {
+        attempt.promotion = move.promotion;
+      }
+      return chess.move(attempt);
+    }
+  }
+  return null;
+}
+
+export function canonicalizeOpeningTokens(
   adviceService,
   tokens = [],
   startTurn = 'white',
@@ -57,20 +114,7 @@ function canonicalizeOpeningTokens(
   let sawLeadingInvalid = false;
   for (const san of sanitized) {
     if (!san) continue;
-    let played;
-    try {
-      played = chess.move(san, { sloppy: true });
-    } catch (err) {
-      if (!cleaned.length) {
-        sawLeadingInvalid = true;
-        continue;
-      }
-      if (!warned) {
-        console.warn('Unable to apply SAN token', san, err);
-        warned = true;
-      }
-      break;
-    }
+    const played = playSanMove(chess, san);
     if (!played) {
       if (!cleaned.length) {
         sawLeadingInvalid = true;
@@ -91,38 +135,52 @@ function canonicalizeOpeningTokens(
   return cleaned;
 }
 
-function normalizeToTokens(adviceService, pgn) {
+export function normalizeToTokens(adviceService, pgn) {
   if (!pgn || typeof pgn !== 'string') return [];
 
-  const trimmed = pgn.trim();
+  const normalized = pgn.replace(/…/g, '...');
+  const baseSanitized = normalized
+    .replace(PGN_ZERO_WIDTH, '')
+    .replace(PGN_EXTRA_PUNCTUATION, '')
+    .replace(PGN_FIGURINE_REGEX, (match) => PGN_FIGURINE_MAP[match] ?? '');
+  const trimmed = baseSanitized.trim();
   const startsWithBlack =
-    /^\s*\d+\s*\.\.\./.test(trimmed) ||
-    /^\s*\.\.\./.test(trimmed);
+    /^\s*\d+\s*\.(?:\.\.|\.\.\.|…)/.test(trimmed) ||
+    /^\s*(?:\.\.\.|…)/.test(trimmed);
   const initialTurn = startsWithBlack ? 'black' : 'white';
 
-  try {
-    const chess = new Chess();
-    const loaded = loadPgnCompat(chess, pgn, { sloppy: true });
-    if (loaded) {
-      const history = chess
-        .history({ verbose: true })
-        .map((move) => move?.san || '')
-        .filter(Boolean);
-      return canonicalizeOpeningTokens(adviceService, history, 'white');
+  const loadCandidates = [normalized, baseSanitized];
+  for (const candidate of loadCandidates) {
+    try {
+      const chess = new Chess();
+      const loaded = loadPgnCompat(chess, candidate, { sloppy: true });
+      if (loaded) {
+        const history = chess
+          .history({ verbose: true })
+          .map((move) => move?.san || '')
+          .filter(Boolean);
+        if (history.length) {
+          return canonicalizeOpeningTokens(adviceService, history, 'white');
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to parse PGN via chess.js', err);
     }
-  } catch (err) {
-    console.warn('Failed to parse PGN via chess.js', err);
   }
 
-  let s = pgn
+  const scrubbed = baseSanitized.replace(PGN_QUOTES, '');
+
+  let s = scrubbed
+    .replace(/\[[^\]]*\]/g, ' ')
     .replace(/\{[^}]*\}/g, ' ')
     .replace(/;.*/g, ' ')
     .replace(/\([^)]*\)/g, ' ')
     .replace(/\$\d+/g, ' ');
 
-  s = s.replace(/\b(1-0|0-1|1\/2-1\/2|\*)\b/g, ' ');
-  s = s.replace(/\d+\.(\.\.)?/g, ' ');
+  s = s.replace(/\b(1-0|0-1|1\/2-1\/2|½-½|\*)\b/g, ' ');
+  s = s.replace(/\d+\.(?:\.\.|…)?/g, ' ');
   s = s.replace(/[+#]/g, '');
+  s = s.replace(/[?!]+/g, '');
   s = s.replace(/\s+/g, ' ').trim();
 
   if (!s) return [];
@@ -383,20 +441,26 @@ async function annotateWithGmTheory(
     .sort((a, b) => b[1].count - a[1].count)
     .slice(0, 6);
   const ourSide = playerColor === 'white' ? 'black' : 'white';
+  let gmRateLimited = false;
 
   for (const [name, stats] of entries) {
+    if (gmRateLimited) {
+      stats._gmError = describeGmError({ status: 429 });
+      continue;
+    }
     if (!stats._samplePgn) continue;
     const tokens = Array.isArray(stats._sampleTokens)
       ? stats._sampleTokens
       : normalizeToTokens(adviceService, stats._samplePgn).slice(0, 24);
     delete stats._gmError;
     try {
-      const gmHits = await adviceService.detectGmDeviationsFromPgn({
+      const gmHitsRaw = await adviceService.detectGmDeviationsFromPgn({
         pgn: stats._samplePgn,
         playerColor,
         limitPlies: 32,
         gmConfig,
       });
+      const gmHits = Array.isArray(gmHitsRaw) ? gmHitsRaw : [];
       const outOfBook = [];
       for (const item of gmHits) {
         const evaluation = item?.evaluation;
@@ -473,6 +537,9 @@ async function annotateWithGmTheory(
       console.warn('Analyse théorie GM impossible pour', name, err);
       delete stats._gmOutOfBook;
       stats._gmError = describeGmError(err);
+      if (err?.status === 429) {
+        gmRateLimited = true;
+      }
     }
   }
 }
