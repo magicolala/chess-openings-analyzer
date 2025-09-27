@@ -1,16 +1,10 @@
 // @ts-nocheck
 import { Chess } from 'chess.js';
 import {
+  ILichessAdviceService,
   loadPgnCompat,
-  adviseFromLichess,
-  detectGmDeviationsFromPgn,
-  extractPliesFromPgn,
-  fetchExplorer,
-  mapSpeed,
-  pickLichessBucket,
-  sanitizeSanSequence,
-  scoreMoves,
-} from '../../infrastructure/lichess/LichessExplorerService';
+} from './services/LichessAdviceService';
+import { ILichessExplorerClient } from '../../infrastructure/lichess/LichessExplorerClient';
 import type { ITrapService } from '../../domain/traps/ITrapService';
 import type { IEngineService } from '../../infrastructure/engine/EngineManager';
 import { defaultAnalysisState, AnalysisMode } from './state';
@@ -45,8 +39,13 @@ const FIRST_MOVE_FALLBACK = new Map([
 const DEFAULT_START_FEN = new Chess().fen();
 const BLACK_START_FEN = DEFAULT_START_FEN.replace(' w ', ' b ');
 
-function canonicalizeOpeningTokens(tokens = [], startTurn = 'white', triedBlackFallback = false) {
-  const sanitized = sanitizeSanSequence(tokens);
+function canonicalizeOpeningTokens(
+  adviceService,
+  tokens = [],
+  startTurn = 'white',
+  triedBlackFallback = false,
+) {
+  const sanitized = adviceService.sanitizeSanSequence(tokens);
   const chess = new Chess();
   if (startTurn === 'black') {
     if (!chess.load(BLACK_START_FEN)) {
@@ -87,12 +86,12 @@ function canonicalizeOpeningTokens(tokens = [], startTurn = 'white', triedBlackF
     cleaned.push(canonical);
   }
   if (!cleaned.length && startTurn === 'white' && sawLeadingInvalid && !triedBlackFallback) {
-    return canonicalizeOpeningTokens(sanitized, 'black', true);
+    return canonicalizeOpeningTokens(adviceService, sanitized, 'black', true);
   }
   return cleaned;
 }
 
-function normalizeToTokens(pgn) {
+function normalizeToTokens(adviceService, pgn) {
   if (!pgn || typeof pgn !== 'string') return [];
 
   const trimmed = pgn.trim();
@@ -109,7 +108,7 @@ function normalizeToTokens(pgn) {
         .history({ verbose: true })
         .map((move) => move?.san || '')
         .filter(Boolean);
-      return canonicalizeOpeningTokens(history, 'white');
+      return canonicalizeOpeningTokens(adviceService, history, 'white');
     }
   } catch (err) {
     console.warn('Failed to parse PGN via chess.js', err);
@@ -139,7 +138,7 @@ function normalizeToTokens(pgn) {
     )
     .map((tok) => tok.replace(/^0-0$/, 'O-O').replace(/^0-0-0$/, 'O-O-O'));
 
-  return canonicalizeOpeningTokens(tokens, initialTurn);
+  return canonicalizeOpeningTokens(adviceService, tokens, initialTurn);
 }
 
 function getOpeningName(tokens, ecoOpenings) {
@@ -218,7 +217,7 @@ function ensureOpeningBucket(collection, name) {
   return collection[name];
 }
 
-function aggregateOpenings(games, username, trapService, ecoOpenings) {
+function aggregateOpenings(games, username, trapService, ecoOpenings, adviceService) {
   const lower = String(username || '').toLowerCase();
   const whiteOpenings = {};
   const blackOpenings = {};
@@ -229,7 +228,7 @@ function aggregateOpenings(games, username, trapService, ecoOpenings) {
       game.white &&
       game.white.username &&
       String(game.white.username).toLowerCase() === lower;
-    const tokens = normalizeToTokens(game.pgn).slice(0, 20);
+    const tokens = normalizeToTokens(adviceService, game.pgn).slice(0, 20);
     const openingName = getOpeningName(tokens, ecoOpenings);
     const targetOpenings = youAreWhite ? whiteOpenings : blackOpenings;
     const bucket = ensureOpeningBucket(targetOpenings, openingName);
@@ -326,10 +325,17 @@ function describeGmError(err) {
   };
 }
 
-async function enrichWithLichessSuggestions(openingsObject, playerElo, chesscomStats, config, trapService) {
+async function enrichWithLichessSuggestions(
+  openingsObject,
+  playerElo,
+  chesscomStats,
+  config,
+  trapService,
+  adviceService,
+) {
   const entries = Object.entries(openingsObject);
   const speed = determineTargetSpeed(chesscomStats, config.speedOverride);
-  const ratingBucket = pickLichessBucket(playerElo, { offset: config.ratingOffset || 0 });
+  const ratingBucket = adviceService.pickLichessBucket(playerElo, { offset: config.ratingOffset || 0 });
 
   const topEntries = entries.sort((a, b) => b[1].count - a[1].count).slice(0, 8);
 
@@ -338,7 +344,7 @@ async function enrichWithLichessSuggestions(openingsObject, playerElo, chesscomS
     if (!sampleTokens?.length) return;
     try {
       const trait = sideToMoveAfter(sampleTokens);
-      const out = await adviseFromLichess({
+      const out = await adviceService.adviseFromTokens({
         tokens: sampleTokens,
         sideToMove: trait,
         playerRating: playerElo,
@@ -360,7 +366,13 @@ async function enrichWithLichessSuggestions(openingsObject, playerElo, chesscomS
   return { speed, ratingBucket };
 }
 
-async function annotateWithGmTheory(openingsObject, { playerColor, config, ratingBucket, speed }, engine) {
+async function annotateWithGmTheory(
+  openingsObject,
+  { playerColor, config, ratingBucket, speed },
+  engine,
+  adviceService,
+  explorerClient,
+) {
   const gmConfig = {
     gmMode: config.gmMode,
     gmTopK: config.gmTopK,
@@ -376,10 +388,10 @@ async function annotateWithGmTheory(openingsObject, { playerColor, config, ratin
     if (!stats._samplePgn) continue;
     const tokens = Array.isArray(stats._sampleTokens)
       ? stats._sampleTokens
-      : normalizeToTokens(stats._samplePgn).slice(0, 24);
+      : normalizeToTokens(adviceService, stats._samplePgn).slice(0, 24);
     delete stats._gmError;
     try {
-      const gmHits = await detectGmDeviationsFromPgn({
+      const gmHits = await adviceService.detectGmDeviationsFromPgn({
         pgn: stats._samplePgn,
         playerColor,
         limitPlies: 32,
@@ -395,12 +407,12 @@ async function annotateWithGmTheory(openingsObject, { playerColor, config, ratin
         let recommendationSource = 'lichess';
 
         try {
-          const data = await fetchExplorer({
+          const data = await explorerClient.fetchExplorer({
             fen: item.ply.fenAfter,
             speeds: [speed],
             ratings: [ratingBucket],
           });
-          const moves = scoreMoves(data, ourSide).slice(0, 3);
+          const moves = adviceService.scoreMoves(data, ourSide).slice(0, 3);
           if (moves.length) {
             recommendation = moves[0];
             alternatives = moves;
@@ -417,7 +429,7 @@ async function annotateWithGmTheory(openingsObject, { playerColor, config, ratin
           if (engineResult?.lines?.length) {
             const primary = engineResult.lines[0];
             if (primary?.pvSan?.length) {
-              const sanitizedPv = sanitizeSanSequence(primary.pvSan);
+              const sanitizedPv = adviceService.sanitizeSanSequence(primary.pvSan);
               recommendation = {
                 san: sanitizedPv[0] || primary.pvSan[0],
                 uci: primary.pvUci?.[0] || engineResult.bestmove,
@@ -426,7 +438,7 @@ async function annotateWithGmTheory(openingsObject, { playerColor, config, ratin
                 pvUci: primary.pvUci,
               };
               alternatives = engineResult.lines.map((line) => {
-                const sanLine = sanitizeSanSequence(line.pvSan);
+                const sanLine = adviceService.sanitizeSanSequence(line.pvSan);
                 return {
                   san: sanLine[0] || line.pvSan[0],
                   uci: line.pvUci?.[0],
@@ -465,13 +477,19 @@ async function annotateWithGmTheory(openingsObject, { playerColor, config, ratin
   }
 }
 
-async function computeImprovementPlans(openingsObject, {
-  playerColor,
-  ratingBucket,
-  speed,
-  threshold = 0.08,
-  engineConfig = {},
-}, engine) {
+async function computeImprovementPlans(
+  openingsObject,
+  {
+    playerColor,
+    ratingBucket,
+    speed,
+    threshold = 0.08,
+    engineConfig = {},
+  },
+  engine,
+  adviceService,
+  explorerClient,
+) {
   const entries = Object.entries(openingsObject)
     .sort((a, b) => b[1].count - a[1].count)
     .slice(0, 5);
@@ -479,19 +497,19 @@ async function computeImprovementPlans(openingsObject, {
     if (!stats._samplePgn) continue;
     const tokens = Array.isArray(stats._sampleTokens)
       ? stats._sampleTokens
-      : normalizeToTokens(stats._samplePgn).slice(0, 28);
-    const plies = extractPliesFromPgn(stats._samplePgn, 32).filter(
+      : normalizeToTokens(adviceService, stats._samplePgn).slice(0, 28);
+    const plies = adviceService.extractPliesFromPgn(stats._samplePgn, 32).filter(
       (ply) => ply.color === playerColor
     );
     const improvements = [];
     for (const ply of plies) {
       try {
-        const data = await fetchExplorer({
+        const data = await explorerClient.fetchExplorer({
           fen: ply.fenBefore,
           speeds: [speed],
           ratings: [ratingBucket],
         });
-        const moves = scoreMoves(data, playerColor).slice(0, 5);
+        const moves = adviceService.scoreMoves(data, playerColor).slice(0, 5);
         if (!moves.length) continue;
         const ourMove = moves.find((m) => m.uci === ply.uci);
         const best = moves[0];
@@ -510,7 +528,7 @@ async function computeImprovementPlans(openingsObject, {
           if (engineResult?.lines?.length) {
             const primary = engineResult.lines[0];
             if (primary?.pvSan?.length) {
-              const sanitizedPv = sanitizeSanSequence(primary.pvSan);
+              const sanitizedPv = adviceService.sanitizeSanSequence(primary.pvSan);
               recommendation = {
                 san: sanitizedPv[0] || primary.pvSan[0],
                 uci: primary.pvUci?.[0] || engineResult.bestmove,
@@ -519,7 +537,7 @@ async function computeImprovementPlans(openingsObject, {
                 pvUci: primary.pvUci,
               };
               alternatives = engineResult.lines.map((line) => {
-                const sanLine = sanitizeSanSequence(line.pvSan);
+                const sanLine = adviceService.sanitizeSanSequence(line.pvSan);
                 return {
                   san: sanLine[0] || line.pvSan[0],
                   uci: line.pvUci?.[0],
@@ -561,15 +579,17 @@ async function computeImprovementPlans(openingsObject, {
 
 interface AnalysisControllerDeps {
   engineService: IEngineService;
-  lichessExplorer: unknown;
+  lichessExplorer: ILichessExplorerClient;
+  lichessAdvice: ILichessAdviceService;
   trapService: ITrapService;
   ecoOpenings: Map<string, string>;
 }
 
 export class AnalysisController {
-  constructor({ engineService, lichessExplorer, trapService, ecoOpenings }: AnalysisControllerDeps) {
+  constructor({ engineService, lichessExplorer, lichessAdvice, trapService, ecoOpenings }: AnalysisControllerDeps) {
     this.engine = engineService;
-    this.lichess = lichessExplorer;
+    this.lichessExplorer = lichessExplorer;
+    this.lichessAdvice = lichessAdvice;
     this.traps = trapService;
     this.ecoOpenings = ecoOpenings;
     this.state = { ...defaultAnalysisState };
@@ -607,6 +627,7 @@ export class AnalysisController {
       username,
       this.traps,
       this.ecoOpenings,
+      this.lichessAdvice,
     );
 
     const playerElo = computePlayerRating(statsData);
@@ -616,6 +637,7 @@ export class AnalysisController {
       statsData,
       config,
       this.traps,
+      this.lichessAdvice,
     );
     const blackMeta = await enrichWithLichessSuggestions(
       blackOpenings,
@@ -623,51 +645,91 @@ export class AnalysisController {
       statsData,
       config,
       this.traps,
+      this.lichessAdvice,
     );
 
     this.state.speed = whiteMeta?.speed || blackMeta?.speed || determineTargetSpeed(statsData, config.speedOverride);
-    this.state.ratingBucket = whiteMeta?.ratingBucket || blackMeta?.ratingBucket || pickLichessBucket(playerElo, { offset: config.ratingOffset || 0 });
+    this.state.ratingBucket =
+      whiteMeta?.ratingBucket ||
+      blackMeta?.ratingBucket ||
+      this.lichessAdvice.pickLichessBucket(playerElo, { offset: config.ratingOffset || 0 });
 
     if (this.state.mode === AnalysisMode.Opponent) {
-      await annotateWithGmTheory(whiteOpenings, {
-        playerColor: 'white',
-        config,
-        ratingBucket: this.state.ratingBucket,
-        speed: this.state.speed,
-      }, this.engine);
-      await annotateWithGmTheory(blackOpenings, {
-        playerColor: 'black',
-        config,
-        ratingBucket: this.state.ratingBucket,
-        speed: this.state.speed,
-      }, this.engine);
+      await annotateWithGmTheory(
+        whiteOpenings,
+        {
+          playerColor: 'white',
+          config,
+          ratingBucket: this.state.ratingBucket,
+          speed: this.state.speed,
+        },
+        this.engine,
+        this.lichessAdvice,
+        this.lichessExplorer,
+      );
+      await annotateWithGmTheory(
+        blackOpenings,
+        {
+          playerColor: 'black',
+          config,
+          ratingBucket: this.state.ratingBucket,
+          speed: this.state.speed,
+        },
+        this.engine,
+        this.lichessAdvice,
+        this.lichessExplorer,
+      );
     } else {
-      await annotateWithGmTheory(whiteOpenings, {
-        playerColor: 'white',
-        config,
-        ratingBucket: this.state.ratingBucket,
-        speed: this.state.speed,
-      }, this.engine);
-      await annotateWithGmTheory(blackOpenings, {
-        playerColor: 'black',
-        config,
-        ratingBucket: this.state.ratingBucket,
-        speed: this.state.speed,
-      }, this.engine);
-      await computeImprovementPlans(whiteOpenings, {
-        playerColor: 'white',
-        ratingBucket: this.state.ratingBucket,
-        speed: this.state.speed,
-        threshold: 0.08,
-        engineConfig: config.engine,
-      }, this.engine);
-      await computeImprovementPlans(blackOpenings, {
-        playerColor: 'black',
-        ratingBucket: this.state.ratingBucket,
-        speed: this.state.speed,
-        threshold: 0.08,
-        engineConfig: config.engine,
-      }, this.engine);
+      await annotateWithGmTheory(
+        whiteOpenings,
+        {
+          playerColor: 'white',
+          config,
+          ratingBucket: this.state.ratingBucket,
+          speed: this.state.speed,
+        },
+        this.engine,
+        this.lichessAdvice,
+        this.lichessExplorer,
+      );
+      await annotateWithGmTheory(
+        blackOpenings,
+        {
+          playerColor: 'black',
+          config,
+          ratingBucket: this.state.ratingBucket,
+          speed: this.state.speed,
+        },
+        this.engine,
+        this.lichessAdvice,
+        this.lichessExplorer,
+      );
+      await computeImprovementPlans(
+        whiteOpenings,
+        {
+          playerColor: 'white',
+          ratingBucket: this.state.ratingBucket,
+          speed: this.state.speed,
+          threshold: 0.08,
+          engineConfig: config.engine,
+        },
+        this.engine,
+        this.lichessAdvice,
+        this.lichessExplorer,
+      );
+      await computeImprovementPlans(
+        blackOpenings,
+        {
+          playerColor: 'black',
+          ratingBucket: this.state.ratingBucket,
+          speed: this.state.speed,
+          threshold: 0.08,
+          engineConfig: config.engine,
+        },
+        this.engine,
+        this.lichessAdvice,
+        this.lichessExplorer,
+      );
     }
 
     this.state.latestPrep = {

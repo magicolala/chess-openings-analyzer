@@ -1,5 +1,7 @@
 import { EngineManager } from './infrastructure/engine/EngineManager';
-import { LichessExplorerService } from './infrastructure/lichess/LichessExplorerService';
+import { LichessExplorerClient } from './infrastructure/lichess/LichessExplorerClient';
+import { LichessMastersClient } from './infrastructure/lichess/LichessMastersClient';
+import { LichessAdviceService } from './application/analysis/services/LichessAdviceService';
 import { TrapService } from './infrastructure/traps/TrapService';
 import { TrapRepository } from './infrastructure/traps/TrapRepository';
 import { registerEcoOpenings } from './infrastructure/eco/eco-pack-xl';
@@ -8,7 +10,9 @@ import { DomAnalysisView } from './ui/DomAnalysisView';
 
 export function createAppContainer() {
   const engineManager = new EngineManager();
-  const lichessExplorer = new LichessExplorerService();
+  const explorerClient = new LichessExplorerClient();
+  const mastersClient = new LichessMastersClient();
+  const lichessAdvice = new LichessAdviceService(explorerClient, mastersClient);
   const trapRepository = new TrapRepository();
   const trapService = TrapService.fromRepository(trapRepository);
   const ecoOpenings = new Map<string, string>();
@@ -16,7 +20,8 @@ export function createAppContainer() {
 
   const controller = new AnalysisController({
     engineService: engineManager,
-    lichessExplorer,
+    lichessExplorer: explorerClient,
+    lichessAdvice,
     trapService,
     ecoOpenings,
   });

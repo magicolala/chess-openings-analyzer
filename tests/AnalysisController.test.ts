@@ -28,7 +28,30 @@ describe('AnalysisController', () => {
     [['e4', 'e5', 'Nf3', 'Nc6', 'Bb5'].join(' '), 'Espagnole'],
   ]);
 
-  const lichessExplorer = {};
+  const lichessExplorer = {
+    fetchExplorer: vi.fn().mockResolvedValue({ moves: [], white: 0, draws: 0, black: 0 }),
+  };
+
+  const lichessAdvice = {
+    pickLichessBucket: vi.fn().mockReturnValue(1600),
+    mapSpeed: vi.fn().mockReturnValue('blitz'),
+    sanitizeSanSequence: vi.fn((seq = []) => seq),
+    scoreMoves: vi.fn().mockReturnValue([]),
+    adviseFromTokens: vi.fn().mockResolvedValue({
+      openingName: null,
+      eco: null,
+      totals: { white: 0, draws: 0, black: 0 },
+      suggestions: [],
+      raw: { moves: [], white: 0, draws: 0, black: 0 },
+      fen: 'startpos',
+      ratingBucket: 1600,
+      speed: 'blitz',
+    }),
+    adviseFromPgn: vi.fn(),
+    pgnToFenAndUci: vi.fn(),
+    extractPliesFromPgn: vi.fn().mockReturnValue([]),
+    detectGmDeviationsFromPgn: vi.fn().mockResolvedValue([]),
+  } as any;
 
   const playerData = { username: 'TestUser' };
   const statsData = {
@@ -62,7 +85,8 @@ describe('AnalysisController', () => {
   it('aggregates openings and updates state', async () => {
     const controller = new AnalysisController({
       engineService: engineService as any,
-      lichessExplorer,
+      lichessExplorer: lichessExplorer as any,
+      lichessAdvice,
       trapService: trapService as any,
       ecoOpenings,
     });
@@ -87,7 +111,8 @@ describe('AnalysisController', () => {
   it('throws when engine enabled without path', async () => {
     const controller = new AnalysisController({
       engineService: engineService as any,
-      lichessExplorer,
+      lichessExplorer: lichessExplorer as any,
+      lichessAdvice,
       trapService: trapService as any,
       ecoOpenings,
     });
