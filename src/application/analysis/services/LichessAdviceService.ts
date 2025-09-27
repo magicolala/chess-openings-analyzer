@@ -13,6 +13,95 @@ import {
   LichessMastersResponse,
 } from '../../../infrastructure/lichess/LichessMastersClient';
 
+const ZERO_WIDTH_CHARS = /[\u200B-\u200D\u2060\uFEFF]/g;
+const EXTRA_SAN_PUNCTUATION = /[†‡‼‽⁇⁈⁉•·‧‣※⁎⁑⁂]/g;
+const SAN_QUOTES = /["'`´’‘“”„«»‹›]/g;
+const LINE_SEPARATOR_CHARS = /[\u2028\u2029]/g;
+const FIGURINE_MAP: Record<string, string> = {
+  '♔': 'K',
+  '♕': 'Q',
+  '♖': 'R',
+  '♗': 'B',
+  '♘': 'N',
+  '♙': '',
+  '♚': 'K',
+  '♛': 'Q',
+  '♜': 'R',
+  '♝': 'B',
+  '♞': 'N',
+  '♟': '',
+};
+const FIGURINE_REGEX = /[♔♕♖♗♘♙♚♛♜♝♞♟]/g;
+const SAN_TOKEN_PATTERN = /^(?:O-O(?:-O)?|[KQRNB]?[a-h]?[1-8]?x?[a-h][1-8](=[QRNB])?|[a-h]x?[a-h][1-8](=[QRNB])?|[a-h][1-8](=[QRNB])?)$/;
+
+function normalizeSanToken(raw: string): string {
+  if (raw == null) {
+    return '';
+  }
+
+  let token = String(raw)
+    .normalize('NFKC')
+    .replace(ZERO_WIDTH_CHARS, '')
+    .replace(LINE_SEPARATOR_CHARS, '')
+    .replace(/[‐‑‒–—―−]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!token) {
+    return '';
+  }
+
+  token = token
+    .replace(FIGURINE_REGEX, (match) => FIGURINE_MAP[match] ?? '')
+    .replace(EXTRA_SAN_PUNCTUATION, '')
+    .replace(SAN_QUOTES, '')
+    .replace(/e\.p\./gi, '')
+    .replace(/…/g, '...')
+    .replace(/^[.]+/, '')
+    .replace(/[.,;:]+$/, '')
+    .replace(/[+#?!]/g, '');
+
+  if (!token) {
+    return '';
+  }
+
+  token = token.replace(/[^0-9a-zA-Z=+O\-x]/g, '');
+
+  if (!token) {
+    return '';
+  }
+
+  if (/^[0o]-[0o](-[0o])?$/i.test(token)) {
+    return token.toUpperCase().replace(/0/g, 'O');
+  }
+
+  token = token.replace(/X/g, 'x');
+  token = token.replace(/=([a-z])/, (_, promo: string) => `=${promo.toUpperCase()}`);
+
+  if (/^[A-H][1-8]$/.test(token)) {
+    return token.toLowerCase();
+  }
+
+  if (/^[A-H]x?[A-H][1-8](=[QRNB])?$/i.test(token)) {
+    const lower = token.toLowerCase();
+    return lower.replace(/=([a-z])/, (_, promo: string) => `=${promo.toUpperCase()}`);
+  }
+
+  if (/^[KQRNB]/i.test(token)) {
+    const head = token.charAt(0).toUpperCase();
+    const tail = token
+      .slice(1)
+      .replace(/[A-H]/g, (match) => match.toLowerCase());
+    return (head + tail).replace(/=([a-z])/, (_, promo: string) => `=${promo.toUpperCase()}`);
+  }
+
+  if (/^[A-H]/.test(token)) {
+    return token.charAt(0).toLowerCase() + token.slice(1).toLowerCase();
+  }
+
+  return token;
+}
+
 export interface ScoreMovesOptions {
   minExpectedScore?: number;
 }
@@ -147,11 +236,9 @@ export class LichessAdviceService implements ILichessAdviceService {
   }
 
   sanitizeSanSequence(seq: string[] = []): string[] {
-    return (seq || []).map((san) =>
-      String(san || '')
-        .trim()
-        .replace(/[+#?!]/g, ''),
-    );
+    return (seq || [])
+      .map((san) => normalizeSanToken(san))
+      .filter((san) => !!san && SAN_TOKEN_PATTERN.test(san));
   }
 
   scoreMoves(
