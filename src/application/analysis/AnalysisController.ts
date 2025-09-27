@@ -96,7 +96,7 @@ function playSanMove(chess, san) {
   return null;
 }
 
-function canonicalizeOpeningTokens(
+export function canonicalizeOpeningTokens(
   adviceService,
   tokens = [],
   startTurn = 'white',
@@ -135,36 +135,43 @@ function canonicalizeOpeningTokens(
   return cleaned;
 }
 
-function normalizeToTokens(adviceService, pgn) {
+export function normalizeToTokens(adviceService, pgn) {
   if (!pgn || typeof pgn !== 'string') return [];
 
   const normalized = pgn.replace(/…/g, '...');
-  const scrubbed = normalized
+  const baseSanitized = normalized
     .replace(PGN_ZERO_WIDTH, '')
     .replace(PGN_EXTRA_PUNCTUATION, '')
-    .replace(PGN_QUOTES, '')
     .replace(PGN_FIGURINE_REGEX, (match) => PGN_FIGURINE_MAP[match] ?? '');
-  const trimmed = scrubbed.trim();
+  const trimmed = baseSanitized.trim();
   const startsWithBlack =
     /^\s*\d+\s*\.(?:\.\.|\.\.\.|…)/.test(trimmed) ||
     /^\s*(?:\.\.\.|…)/.test(trimmed);
   const initialTurn = startsWithBlack ? 'black' : 'white';
 
-  try {
-    const chess = new Chess();
-    const loaded = loadPgnCompat(chess, scrubbed, { sloppy: true });
-    if (loaded) {
-      const history = chess
-        .history({ verbose: true })
-        .map((move) => move?.san || '')
-        .filter(Boolean);
-      return canonicalizeOpeningTokens(adviceService, history, 'white');
+  const loadCandidates = [normalized, baseSanitized];
+  for (const candidate of loadCandidates) {
+    try {
+      const chess = new Chess();
+      const loaded = loadPgnCompat(chess, candidate, { sloppy: true });
+      if (loaded) {
+        const history = chess
+          .history({ verbose: true })
+          .map((move) => move?.san || '')
+          .filter(Boolean);
+        if (history.length) {
+          return canonicalizeOpeningTokens(adviceService, history, 'white');
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to parse PGN via chess.js', err);
     }
-  } catch (err) {
-    console.warn('Failed to parse PGN via chess.js', err);
   }
 
+  const scrubbed = baseSanitized.replace(PGN_QUOTES, '');
+
   let s = scrubbed
+    .replace(/\[[^\]]*\]/g, ' ')
     .replace(/\{[^}]*\}/g, ' ')
     .replace(/;.*/g, ' ')
     .replace(/\([^)]*\)/g, ' ')
@@ -447,12 +454,13 @@ async function annotateWithGmTheory(
       : normalizeToTokens(adviceService, stats._samplePgn).slice(0, 24);
     delete stats._gmError;
     try {
-      const gmHits = await adviceService.detectGmDeviationsFromPgn({
+      const gmHitsRaw = await adviceService.detectGmDeviationsFromPgn({
         pgn: stats._samplePgn,
         playerColor,
         limitPlies: 32,
         gmConfig,
       });
+      const gmHits = Array.isArray(gmHitsRaw) ? gmHitsRaw : [];
       const outOfBook = [];
       for (const item of gmHits) {
         const evaluation = item?.evaluation;
