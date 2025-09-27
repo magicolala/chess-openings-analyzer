@@ -3,6 +3,7 @@ export interface FetchJsonOptions {
   retryDelayMs?: number;
   retryOnStatuses?: number[];
   headers?: Record<string, string>;
+  signal?: AbortSignal;
 }
 
 async function wait(ms: number): Promise<void> {
@@ -40,7 +41,7 @@ class RequestQueue {
   }
 }
 
-const lichessApiQueue = new RequestQueue(1000); // 1-second delay
+const chessComApiQueue = new RequestQueue(1000); // 1-second delay
 
 export async function fetchJson<T>(
   url: string,
@@ -51,6 +52,7 @@ export async function fetchJson<T>(
     retryDelayMs = 800,
     retryOnStatuses = [429],
     headers = { Accept: 'application/json' },
+    signal,
   } = options;
 
   const requestFn = async () => {
@@ -58,7 +60,7 @@ export async function fetchJson<T>(
     let delayMs = retryDelayMs;
 
     while (true) {
-      const response = await fetch(url, { headers });
+      const response = await fetch(url, { headers, signal });
 
       if (response.ok) {
         return response.json() as Promise<T>;
@@ -76,7 +78,7 @@ export async function fetchJson<T>(
 
       const body = await response.text().catch(() => '');
       const error = new Error(
-        `Lichess API failed with status ${status}`,
+        `Chess.com API failed with status ${status}`,
       ) as Error & {
         status: number;
         body: string;
@@ -89,5 +91,5 @@ export async function fetchJson<T>(
     }
   };
 
-  return lichessApiQueue.add(requestFn);
+  return chessComApiQueue.add(requestFn);
 }

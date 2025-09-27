@@ -8,6 +8,7 @@ import { ILichessExplorerClient } from '../../infrastructure/lichess/LichessExpl
 import type { ITrapService } from '../../domain/traps/ITrapService';
 import type { IEngineService } from '../../infrastructure/engine/EngineManager';
 import { defaultAnalysisState, AnalysisMode } from './state';
+import { fetchJson } from '../../infrastructure/chess.com/http';
 
 function withTimeout(ms = 10000) {
   const controller = new AbortController();
@@ -102,7 +103,9 @@ export function canonicalizeOpeningTokens(
   startTurn = 'white',
   triedBlackFallback = false,
 ) {
+  console.log('canonicalizeOpeningTokens called with tokens:', tokens, 'startTurn:', startTurn);
   const sanitized = adviceService.sanitizeSanSequence(tokens);
+  console.log('sanitized tokens:', sanitized);
   const chess = new Chess();
   if (startTurn === 'black') {
     if (!chess.load(BLACK_START_FEN)) {
@@ -114,8 +117,10 @@ export function canonicalizeOpeningTokens(
   let sawLeadingInvalid = false;
   for (const san of sanitized) {
     if (!san) continue;
+    console.log('Attempting to play move:', san, 'on FEN:', chess.fen());
     const played = playSanMove(chess, san);
     if (!played) {
+      console.warn('Failed to play move:', san, 'on position:', chess.fen());
       if (!cleaned.length) {
         sawLeadingInvalid = true;
         continue;
@@ -129,7 +134,9 @@ export function canonicalizeOpeningTokens(
     const canonical = String(played.san || san).replace(/[+#?!]/g, '');
     cleaned.push(canonical);
   }
+  console.log('canonicalizeOpeningTokens result:', cleaned);
   if (!cleaned.length && startTurn === 'white' && sawLeadingInvalid && !triedBlackFallback) {
+    console.log('Trying black fallback');
     return canonicalizeOpeningTokens(adviceService, sanitized, 'black', true);
   }
   return cleaned;
@@ -221,16 +228,14 @@ function sideToMoveAfter(tokens) {
 
 async function fetchPlayerContext(username) {
   const base = `https://api.chess.com/pub/player/${encodeURIComponent(username)}`;
-  const { signal, cleanup } = withTimeout(FETCH_TIMEOUT_MS);
-  const [playerRes, statsRes] = await Promise.all([
-    fetch(base, { signal }),
-    fetch(`${base}/stats`, { signal }),
-  ]);
-  cleanup();
 
-  if (!playerRes.ok) throw new Error('Joueur non trouvé');
-  const playerData = await playerRes.json();
-  const statsData = statsRes.ok ? await statsRes.json() : {};
+  const playerPromise = fetchJson(base, {}).catch(err => {
+    console.error('Failed to fetch player data', err);
+    throw new Error('Joueur non trouvé');
+  });
+  const statsPromise = fetchJson(`${base}/stats`, {}).catch(() => ({}));
+  
+  const [playerData, statsData] = await Promise.all([playerPromise, statsPromise]);
 
   const now = new Date();
   const months = Array.from({ length: MONTHS_TO_CHECK }, (_, i) => {
@@ -239,18 +244,13 @@ async function fetchPlayerContext(username) {
   });
 
   const monthFetches = months.map(({ y, m }) => {
-    const { signal: monthSignal, cleanup: cleanupMonth } = withTimeout(FETCH_TIMEOUT_MS);
-    return fetch(`https://api.chess.com/pub/player/${encodeURIComponent(username)}/games/${y}/${m}`, { signal: monthSignal })
-      .then((r) => {
-        cleanupMonth();
-        return r.ok ? r.json() : { games: [] };
-      })
-      .catch(() => ({ games: [] }));
+    const url = `https://api.chess.com/pub/player/${encodeURIComponent(username)}/games/${y}/${m}`;
+    return fetchJson(url, {}).catch(() => ({ games: [] }));
   });
 
   const monthPayloads = await Promise.allSettled(monthFetches);
   const recentGames = monthPayloads.flatMap((res) =>
-    res.status === 'fulfilled' ? (res.value.games || []) : []
+    res.status === 'fulfilled' ? res.value.games || [] : [],
   );
 
   const games = recentGames.filter((g) => (g.rules ? g.rules === 'chess' : true));
@@ -471,11 +471,13 @@ async function annotateWithGmTheory(
         let recommendationSource = 'lichess';
 
         try {
+          console.log('Fetching explorer data for GM theory, FEN:', item.ply.fenAfter, 'speed:', speed, 'ratingBucket:', ratingBucket);
           const data = await explorerClient.fetchExplorer({
             fen: item.ply.fenAfter,
             speeds: [speed],
             ratings: [ratingBucket],
           });
+          console.log('Explorer data fetched successfully for GM theory');
           const moves = adviceService.scoreMoves(data, ourSide).slice(0, 3);
           if (moves.length) {
             recommendation = moves[0];
@@ -483,6 +485,7 @@ async function annotateWithGmTheory(
           }
         } catch (err) {
           console.warn('Explorer suggestions indisponibles pour réponse GM', err?.status || '', err?.url || '', err);
+          console.log('Failed to fetch explorer data for GM theory, FEN:', item.ply.fenAfter);
         }
 
         if ((!recommendation || recommendation.total < 10) && config.engine?.enabled) {
@@ -571,11 +574,13 @@ async function computeImprovementPlans(
     const improvements = [];
     for (const ply of plies) {
       try {
+        console.log('Fetching explorer data for improvement plans, FEN:', ply.fenBefore, 'speed:', speed, 'ratingBucket:', ratingBucket);
         const data = await explorerClient.fetchExplorer({
           fen: ply.fenBefore,
           speeds: [speed],
           ratings: [ratingBucket],
         });
+        console.log('Explorer data fetched successfully for improvement plans');
         const moves = adviceService.scoreMoves(data, playerColor).slice(0, 5);
         if (!moves.length) continue;
         const ourMove = moves.find((m) => m.uci === ply.uci);
@@ -633,6 +638,7 @@ async function computeImprovementPlans(
         if (improvements.length >= 3) break;
       } catch (err) {
         console.warn('Impossible de calculer une amélioration pour', name, err);
+        console.log('Failed to fetch explorer data for improvement plans, FEN:', ply.fenBefore);
       }
     }
     if (improvements.length) {
@@ -676,6 +682,7 @@ export class AnalysisController {
     if (!username) {
       throw new Error('Veuillez entrer un pseudo Chess.com');
     }
+    console.log('Starting analysis for username:', username);
 
     this.state.config = config;
 
@@ -689,6 +696,8 @@ export class AnalysisController {
     }
 
     const { playerData, statsData, games } = await fetchPlayerContext(username);
+    console.log('Fetched player context:', { playerData: playerData.username, gamesCount: games.length });
+
     const { whiteOpenings, blackOpenings } = aggregateOpenings(
       games,
       username,
@@ -696,6 +705,7 @@ export class AnalysisController {
       this.ecoOpenings,
       this.lichessAdvice,
     );
+    console.log('Aggregated openings:', { whiteCount: Object.keys(whiteOpenings).length, blackCount: Object.keys(blackOpenings).length });
 
     const playerElo = computePlayerRating(statsData);
     const whiteMeta = await enrichWithLichessSuggestions(
@@ -714,6 +724,7 @@ export class AnalysisController {
       this.traps,
       this.lichessAdvice,
     );
+    console.log('Enriched with Lichess suggestions:', { playerElo, speed: whiteMeta?.speed || blackMeta?.speed, ratingBucket: whiteMeta?.ratingBucket || blackMeta?.ratingBucket });
 
     this.state.speed = whiteMeta?.speed || blackMeta?.speed || determineTargetSpeed(statsData, config.speedOverride);
     this.state.ratingBucket =
@@ -746,6 +757,7 @@ export class AnalysisController {
         this.lichessAdvice,
         this.lichessExplorer,
       );
+      console.log('Annotated with GM theory for opponent mode');
     } else {
       await annotateWithGmTheory(
         whiteOpenings,
@@ -771,6 +783,7 @@ export class AnalysisController {
         this.lichessAdvice,
         this.lichessExplorer,
       );
+      console.log('Annotated with GM theory for improvement mode');
       await computeImprovementPlans(
         whiteOpenings,
         {
@@ -797,6 +810,7 @@ export class AnalysisController {
         this.lichessAdvice,
         this.lichessExplorer,
       );
+      console.log('Computed improvement plans');
     }
 
     this.state.latestPrep = {
@@ -813,6 +827,8 @@ export class AnalysisController {
       },
     };
     this.state.latestPlayer = playerData;
+
+    console.log('Analysis completed for username:', username);
 
     return {
       player: playerData,
