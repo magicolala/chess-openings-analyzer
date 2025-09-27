@@ -55,9 +55,13 @@ describe('LichessAdviceService', () => {
       '​e5',
       '...g6+',
       '??',
+      '♘xf7⁉',
+      'Qh5†',
+      'exd6 e.p.',
+      '“…c5”',
     ]);
 
-    expect(sanitized).toEqual(['e4', 'O-O', 'Nf3', 'bxa8=Q', 'e5', 'g6']);
+    expect(sanitized).toEqual(['e4', 'O-O', 'Nf3', 'bxa8=Q', 'e5', 'g6', 'Nxf7', 'Qh5', 'exd6', 'c5']);
   });
 
   it('computes advice from explorer data', async () => {

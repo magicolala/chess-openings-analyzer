@@ -14,6 +14,24 @@ import {
 } from '../../../infrastructure/lichess/LichessMastersClient';
 
 const ZERO_WIDTH_CHARS = /[\u200B-\u200D\u2060\uFEFF]/g;
+const EXTRA_SAN_PUNCTUATION = /[†‡‼‽⁇⁈⁉•·‧‣※⁎⁑⁂]/g;
+const SAN_QUOTES = /["'`´’‘“”„«»‹›]/g;
+const LINE_SEPARATOR_CHARS = /[\u2028\u2029]/g;
+const FIGURINE_MAP: Record<string, string> = {
+  '♔': 'K',
+  '♕': 'Q',
+  '♖': 'R',
+  '♗': 'B',
+  '♘': 'N',
+  '♙': '',
+  '♚': 'K',
+  '♛': 'Q',
+  '♜': 'R',
+  '♝': 'B',
+  '♞': 'N',
+  '♟': '',
+};
+const FIGURINE_REGEX = /[♔♕♖♗♘♙♚♛♜♝♞♟]/g;
 const SAN_TOKEN_PATTERN = /^(?:O-O(?:-O)?|[KQRNB]?[a-h]?[1-8]?x?[a-h][1-8](=[QRNB])?|[a-h]x?[a-h][1-8](=[QRNB])?|[a-h][1-8](=[QRNB])?)$/;
 
 function normalizeSanToken(raw: string): string {
@@ -24,7 +42,8 @@ function normalizeSanToken(raw: string): string {
   let token = String(raw)
     .normalize('NFKC')
     .replace(ZERO_WIDTH_CHARS, '')
-    .replace(/[–—−]/g, '-')
+    .replace(LINE_SEPARATOR_CHARS, '')
+    .replace(/[‐‑‒–—―−]/g, '-')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -33,9 +52,20 @@ function normalizeSanToken(raw: string): string {
   }
 
   token = token
+    .replace(FIGURINE_REGEX, (match) => FIGURINE_MAP[match] ?? '')
+    .replace(EXTRA_SAN_PUNCTUATION, '')
+    .replace(SAN_QUOTES, '')
+    .replace(/e\.p\./gi, '')
+    .replace(/…/g, '...')
     .replace(/^[.]+/, '')
     .replace(/[.,;:]+$/, '')
     .replace(/[+#?!]/g, '');
+
+  if (!token) {
+    return '';
+  }
+
+  token = token.replace(/[^0-9a-zA-Z=+O\-x]/g, '');
 
   if (!token) {
     return '';

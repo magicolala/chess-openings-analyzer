@@ -39,6 +39,24 @@ const FIRST_MOVE_FALLBACK = new Map([
 const DEFAULT_START_FEN = new Chess().fen();
 const BLACK_START_FEN = DEFAULT_START_FEN.replace(' w ', ' b ');
 const SAN_COMPARE_STRIP = /[+#?!\s\u200B-\u200D\u2060\uFEFF]/g;
+const PGN_EXTRA_PUNCTUATION = /[†‡‼‽⁇⁈⁉•·‧‣※⁎⁑⁂]/g;
+const PGN_QUOTES = /["'`´’‘“”„«»‹›]/g;
+const PGN_ZERO_WIDTH = /[\u200B-\u200D\u2060\uFEFF]/g;
+const PGN_FIGURINE_MAP = {
+  '♔': 'K',
+  '♕': 'Q',
+  '♖': 'R',
+  '♗': 'B',
+  '♘': 'N',
+  '♙': '',
+  '♚': 'K',
+  '♛': 'Q',
+  '♜': 'R',
+  '♝': 'B',
+  '♞': 'N',
+  '♟': '',
+};
+const PGN_FIGURINE_REGEX = /[♔♕♖♗♘♙♚♛♜♝♞♟]/g;
 
 function normalizeSanForComparison(rawSan) {
   if (!rawSan) return '';
@@ -120,15 +138,21 @@ function canonicalizeOpeningTokens(
 function normalizeToTokens(adviceService, pgn) {
   if (!pgn || typeof pgn !== 'string') return [];
 
-  const trimmed = pgn.trim();
+  const normalized = pgn.replace(/…/g, '...');
+  const scrubbed = normalized
+    .replace(PGN_ZERO_WIDTH, '')
+    .replace(PGN_EXTRA_PUNCTUATION, '')
+    .replace(PGN_QUOTES, '')
+    .replace(PGN_FIGURINE_REGEX, (match) => PGN_FIGURINE_MAP[match] ?? '');
+  const trimmed = scrubbed.trim();
   const startsWithBlack =
-    /^\s*\d+\s*\.\.\./.test(trimmed) ||
-    /^\s*\.\.\./.test(trimmed);
+    /^\s*\d+\s*\.(?:\.\.|\.\.\.|…)/.test(trimmed) ||
+    /^\s*(?:\.\.\.|…)/.test(trimmed);
   const initialTurn = startsWithBlack ? 'black' : 'white';
 
   try {
     const chess = new Chess();
-    const loaded = loadPgnCompat(chess, pgn, { sloppy: true });
+    const loaded = loadPgnCompat(chess, scrubbed, { sloppy: true });
     if (loaded) {
       const history = chess
         .history({ verbose: true })
@@ -140,14 +164,14 @@ function normalizeToTokens(adviceService, pgn) {
     console.warn('Failed to parse PGN via chess.js', err);
   }
 
-  let s = pgn
+  let s = scrubbed
     .replace(/\{[^}]*\}/g, ' ')
     .replace(/;.*/g, ' ')
     .replace(/\([^)]*\)/g, ' ')
     .replace(/\$\d+/g, ' ');
 
-  s = s.replace(/\b(1-0|0-1|1\/2-1\/2|\*)\b/g, ' ');
-  s = s.replace(/\d+\.(\.\.)?/g, ' ');
+  s = s.replace(/\b(1-0|0-1|1\/2-1\/2|½-½|\*)\b/g, ' ');
+  s = s.replace(/\d+\.(?:\.\.|…)?/g, ' ');
   s = s.replace(/[+#]/g, '');
   s = s.replace(/[?!]+/g, '');
   s = s.replace(/\s+/g, ' ').trim();
