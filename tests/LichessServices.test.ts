@@ -38,6 +38,28 @@ describe('Lichess infrastructure clients', () => {
 });
 
 describe('LichessAdviceService', () => {
+  it('sanitizes SAN tokens with punctuation and unicode noise', () => {
+    const explorerClient = { fetchExplorer: vi.fn() };
+    const mastersClient = {
+      fetchMasters: vi.fn(),
+      evaluateMoveAgainstGm: vi.fn(),
+    } as any;
+
+    const service = new LichessAdviceService(explorerClient as any, mastersClient);
+
+    const sanitized = service.sanitizeSanSequence([
+      ' e4?! ',
+      '0-0',
+      'NF3',
+      'bxa8=q',
+      '​e5',
+      '...g6+',
+      '??',
+    ]);
+
+    expect(sanitized).toEqual(['e4', 'O-O', 'Nf3', 'bxa8=Q', 'e5', 'g6']);
+  });
+
   it('computes advice from explorer data', async () => {
     const explorerData = {
       moves: [

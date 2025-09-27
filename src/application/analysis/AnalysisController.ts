@@ -38,6 +38,45 @@ const FIRST_MOVE_FALLBACK = new Map([
 
 const DEFAULT_START_FEN = new Chess().fen();
 const BLACK_START_FEN = DEFAULT_START_FEN.replace(' w ', ' b ');
+const SAN_COMPARE_STRIP = /[+#?!\s\u200B-\u200D\u2060\uFEFF]/g;
+
+function normalizeSanForComparison(rawSan) {
+  if (!rawSan) return '';
+  return String(rawSan)
+    .normalize('NFKC')
+    .replace(/[–—−]/g, '-')
+    .replace(SAN_COMPARE_STRIP, '')
+    .replace(/0/g, 'O')
+    .toLowerCase();
+}
+
+function playSanMove(chess, san) {
+  if (!san) return null;
+  const candidate = String(san).trim();
+  if (!candidate) return null;
+  try {
+    const played = chess.move(candidate, { sloppy: true });
+    if (played) {
+      return played;
+    }
+  } catch (err) {
+    // fall through to comparison-based matching
+  }
+  const normalizedTarget = normalizeSanForComparison(candidate);
+  if (!normalizedTarget) return null;
+  const moves = chess.moves({ verbose: true });
+  for (const move of moves) {
+    const normalizedSan = normalizeSanForComparison(move.san);
+    if (normalizedSan && normalizedSan === normalizedTarget) {
+      const attempt = { from: move.from, to: move.to };
+      if (move.promotion) {
+        attempt.promotion = move.promotion;
+      }
+      return chess.move(attempt);
+    }
+  }
+  return null;
+}
 
 function canonicalizeOpeningTokens(
   adviceService,
@@ -57,20 +96,7 @@ function canonicalizeOpeningTokens(
   let sawLeadingInvalid = false;
   for (const san of sanitized) {
     if (!san) continue;
-    let played;
-    try {
-      played = chess.move(san, { sloppy: true });
-    } catch (err) {
-      if (!cleaned.length) {
-        sawLeadingInvalid = true;
-        continue;
-      }
-      if (!warned) {
-        console.warn('Unable to apply SAN token', san, err);
-        warned = true;
-      }
-      break;
-    }
+    const played = playSanMove(chess, san);
     if (!played) {
       if (!cleaned.length) {
         sawLeadingInvalid = true;
@@ -123,6 +149,7 @@ function normalizeToTokens(adviceService, pgn) {
   s = s.replace(/\b(1-0|0-1|1\/2-1\/2|\*)\b/g, ' ');
   s = s.replace(/\d+\.(\.\.)?/g, ' ');
   s = s.replace(/[+#]/g, '');
+  s = s.replace(/[?!]+/g, '');
   s = s.replace(/\s+/g, ' ').trim();
 
   if (!s) return [];
@@ -383,8 +410,13 @@ async function annotateWithGmTheory(
     .sort((a, b) => b[1].count - a[1].count)
     .slice(0, 6);
   const ourSide = playerColor === 'white' ? 'black' : 'white';
+  let gmRateLimited = false;
 
   for (const [name, stats] of entries) {
+    if (gmRateLimited) {
+      stats._gmError = describeGmError({ status: 429 });
+      continue;
+    }
     if (!stats._samplePgn) continue;
     const tokens = Array.isArray(stats._sampleTokens)
       ? stats._sampleTokens
@@ -473,6 +505,9 @@ async function annotateWithGmTheory(
       console.warn('Analyse théorie GM impossible pour', name, err);
       delete stats._gmOutOfBook;
       stats._gmError = describeGmError(err);
+      if (err?.status === 429) {
+        gmRateLimited = true;
+      }
     }
   }
 }

@@ -58,7 +58,7 @@ describe('AnalysisController', () => {
     chess_blitz: { last: { rating: 1800 } },
   };
   const sampleGame = {
-    pgn: '1. e4 e5 2. Nf3 Nc6 3. Bb5 a6',
+    pgn: '1. e4?! e5 2. Nf3 Nc6 3. Bb5+ a6',
     white: { username: 'TestUser', result: 'win' },
     black: { username: 'Opponent', result: 'resign' },
     end_time: 0,
