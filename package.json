@@ -8,7 +8,9 @@
     "build": "npm run typecheck && npm run bundle",
     "bundle": "esbuild src/main.ts --bundle --format=esm --sourcemap --outfile=dist/main.js",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "dev": "esbuild src/main.ts --bundle --format=esm --sourcemap --outfile=dist/main.js --watch --servedir=.",
+    "prepare": "npm run bundle"
   },
   "keywords": [],
   "author": "",
