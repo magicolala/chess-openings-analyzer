@@ -2575,3 +2575,7 @@ document.getElementById('exportJsonBtn').addEventListener('click', () => exportP
 document.getElementById('exportMarkdownBtn').addEventListener('click', () => exportPrep('markdown'));
 document.getElementById('exportPdfBtn').addEventListener('click', () => exportPrep('pdf'));
 mountDuelModeView('duelModeRoot');
+
+// Fournit un export par défaut inerte afin que les anciens points d'entrée
+// qui attendent `export default` ne déclenchent plus d'erreur à l'import.
+export default {};
