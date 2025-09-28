@@ -10,6 +10,7 @@
 #error,
 #playerInfo,
 #prepActions,
+#lichessSelection,
 #openingsSection {
   display: none;
 }
@@ -200,6 +201,38 @@ button {
   gap: 12px;
   flex-wrap: wrap;
   margin: 12px 0 24px;
+}
+
+.lichess-selection {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: #f5f7ff;
+  border: 1px solid rgba(102, 126, 234, 0.25);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.lichess-selection-info {
+  flex: 1 1 240px;
+  color: #4c51bf;
+  font-weight: 600;
+}
+
+.lichess-selection-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.lichess-selection-summary {
+  font-size: 14px;
+  font-weight: 600;
+  color: #312e81;
 }
 
 .badge {
@@ -417,6 +450,30 @@ button:disabled {
   font-weight: bold;
   color: #333;
   margin-bottom: 5px;
+}
+
+.opening-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.lichess-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4c51bf;
+  background: rgba(102, 126, 234, 0.08);
+  border-radius: 999px;
+  padding: 6px 12px;
+}
+
+.lichess-select input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #4c51bf;
 }
 
 .trap-name {
