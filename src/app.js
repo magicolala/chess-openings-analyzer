@@ -17,6 +17,7 @@ import {
 import { registerEcoOpenings } from '../eco-pack-xl.js';
 import { TrapEngine, TRAP_PACK } from '../trap-engine.js';
 import { ULTRA_TRAPS } from '../trap-pack-ultra.js';
+import { mountDuelModeView } from './features/duel-mode/index.js';
 
 class EngineManager {
   constructor() {
@@ -2568,3 +2569,4 @@ setAnalysisMode(state.mode);
 document.getElementById('exportJsonBtn').addEventListener('click', () => exportPrep('json'));
 document.getElementById('exportMarkdownBtn').addEventListener('click', () => exportPrep('markdown'));
 document.getElementById('exportPdfBtn').addEventListener('click', () => exportPrep('pdf'));
+mountDuelModeView('duelModeRoot');
