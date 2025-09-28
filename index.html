@@ -2134,6 +2134,7 @@
               recommendationSource,
               alternatives,
               tokensBefore,
+              analyzedSide: ourSide,
               orientation: ourSide,
             });
           }
@@ -2443,11 +2444,11 @@
       }
       const orientation = resolveOrientationForMode(side, mode);
       const items = entries.slice(0, 3).map((entry) => {
-        const entryOrientation = entry.orientation === 'black'
-          ? 'black'
-          : entry.orientation === 'white'
-            ? 'white'
-            : orientation;
+        const entrySide = entry.analyzedSide
+          || entry.orientation
+          || entry.ply?.color
+          || side;
+        const entryOrientation = resolveOrientationForMode(entrySide, mode);
         const moveLabel = `${entry.ply.moveNumber}${entry.ply.color === 'white' ? '.' : '...'} ${escapeHtml(entry.ply.san)}`;
         const coverage = entry.evaluation?.coverage != null
           ? `Couverture GM ${Math.round((entry.evaluation.coverage || 0) * 100)}%`
