@@ -14,8 +14,15 @@
 
 <body>
   <div class="container">
-    <h1>♟️ Analyseur d'Ouvertures Chess.com</h1>
-    <p class="subtitle">Découvrez les ouvertures préférées de n'importe quel joueur</p>
+    <header class="app-header">
+      <div class="app-header-icon" aria-hidden="true">♟️</div>
+      <div class="app-header-texts">
+        <h1>Analyseur d'Ouvertures Chess.com</h1>
+        <p class="subtitle">
+          Découvrez les ouvertures préférées de n'importe quel joueur et préparez vos parties en quelques minutes.
+        </p>
+      </div>
+    </header>
 
     <div class="mode-toggle" role="tablist" aria-label="Mode d'analyse">
       <button type="button" class="mode-btn is-active" data-mode="opponent" id="modeOpponent" aria-pressed="true">
@@ -28,7 +35,16 @@
 
     <div class="search-section" id="controlPanel">
       <div class="control-field">
-        <label class="control-label" for="username">Pseudo Chess.com</label>
+        <label class="control-label" for="username">
+          Pseudo Chess.com
+          <span
+            class="info-bubble"
+            tabindex="0"
+            role="tooltip"
+            aria-label="Pseudo du joueur sur Chess.com pour récupérer ses parties publiques."
+            data-tooltip="Pseudo du joueur sur Chess.com pour récupérer ses parties publiques."
+          >?</span>
+        </label>
         <input
           type="text"
           id="username"
@@ -37,7 +53,16 @@
         />
       </div>
       <div class="control-field">
-        <label class="control-label" for="speedSelect">Cadence cible</label>
+        <label class="control-label" for="speedSelect">
+          Cadence cible
+          <span
+            class="info-bubble"
+            tabindex="0"
+            role="tooltip"
+            aria-label="Choisissez la cadence de jeu pour filtrer les statistiques et recommandations."
+            data-tooltip="Choisissez la cadence de jeu pour filtrer les statistiques et recommandations."
+          >?</span>
+        </label>
         <select id="speedSelect">
           <option value="auto">Auto (selon stats)</option>
           <option value="bullet">Bullet</option>
@@ -48,11 +73,29 @@
         </select>
       </div>
       <div class="control-field">
-        <label class="control-label" for="ratingOffset">Décalage Elo Explorer</label>
+        <label class="control-label" for="ratingOffset">
+          Décalage Elo Explorer
+          <span
+            class="info-bubble"
+            tabindex="0"
+            role="tooltip"
+            aria-label="Ajuste la plage Elo envoyée à Lichess Explorer pour mieux correspondre au niveau cible."
+            data-tooltip="Ajuste la plage Elo envoyée à Lichess Explorer pour mieux correspondre au niveau cible."
+          >?</span>
+        </label>
         <input type="number" id="ratingOffset" value="0" step="50" />
       </div>
       <div class="control-field">
-        <label class="control-label" for="gmMode">Théorie GM</label>
+        <label class="control-label" for="gmMode">
+          Théorie GM
+          <span
+            class="info-bubble"
+            tabindex="0"
+            role="tooltip"
+            aria-label="Sélectionnez comment comparer les coups du joueur avec les recommandations de grands maîtres."
+            data-tooltip="Sélectionnez comment comparer les coups du joueur avec les recommandations de grands maîtres."
+          >?</span>
+        </label>
         <select id="gmMode">
           <option value="top1">Top 1</option>
           <option value="topK">Top K</option>
@@ -60,19 +103,55 @@
         </select>
       </div>
       <div class="control-field" id="gmTopKField">
-        <label class="control-label" for="gmTopK">K (Top K)</label>
+        <label class="control-label" for="gmTopK">
+          K (Top K)
+          <span
+            class="info-bubble"
+            tabindex="0"
+            role="tooltip"
+            aria-label="Nombre maximum de coups recommandés par les GMs à comparer."
+            data-tooltip="Nombre maximum de coups recommandés par les GMs à comparer."
+          >?</span>
+        </label>
         <input type="number" id="gmTopK" min="1" max="6" value="3" />
       </div>
       <div class="control-field" id="gmCoverageField">
-        <label class="control-label" for="gmCoverage">Couverture minimale (%)</label>
+        <label class="control-label" for="gmCoverage">
+          Couverture minimale (%)
+          <span
+            class="info-bubble"
+            tabindex="0"
+            role="tooltip"
+            aria-label="Seuil de couverture des coups GM pour valider une recommandation."
+            data-tooltip="Seuil de couverture des coups GM pour valider une recommandation."
+          >?</span>
+        </label>
         <input type="number" id="gmCoverage" min="10" max="100" value="70" step="5" />
       </div>
       <div class="control-field">
-        <label class="control-label" for="minMasterGames">Volume Masters minimum</label>
+        <label class="control-label" for="minMasterGames">
+          Volume Masters minimum
+          <span
+            class="info-bubble"
+            tabindex="0"
+            role="tooltip"
+            aria-label="Nombre minimal de parties de maîtres pour qu'une ligne soit considérée fiable."
+            data-tooltip="Nombre minimal de parties de maîtres pour qu'une ligne soit considérée fiable."
+          >?</span>
+        </label>
         <input type="number" id="minMasterGames" min="10" max="500" step="10" value="50" />
       </div>
       <div class="control-field toggle-field" id="engineSettings">
-        <span class="control-label">Moteur local</span>
+        <span class="control-label">
+          Moteur local
+          <span
+            class="info-bubble"
+            tabindex="0"
+            role="tooltip"
+            aria-label="Active un moteur Stockfish WebAssembly pour évaluer les positions clés directement dans votre navigateur."
+            data-tooltip="Active un moteur Stockfish WebAssembly pour évaluer les positions clés directement dans votre navigateur."
+          >?</span>
+        </span>
         <label class="engine-toggle" for="engineEnabled">
           <input type="checkbox" id="engineEnabled" />
           <span>Activer Stockfish local</span>
@@ -82,14 +161,33 @@
           id="enginePath"
           placeholder="Chemin Worker Stockfish (optionnel)"
           autocomplete="off"
+          aria-label="Chemin vers le worker Stockfish"
         />
         <div class="engine-options">
           <div class="engine-option">
-            <label for="engineDepth">Profondeur</label>
+            <label for="engineDepth">
+              Profondeur
+              <span
+                class="info-bubble"
+                tabindex="0"
+                role="tooltip"
+                aria-label="Nombre de demi-coups analysés par le moteur pour évaluer une position."
+                data-tooltip="Nombre de demi-coups analysés par le moteur pour évaluer une position."
+              >?</span>
+            </label>
             <input type="number" id="engineDepth" min="6" max="30" value="18" />
           </div>
           <div class="engine-option">
-            <label for="engineMultiPv">MultiPV</label>
+            <label for="engineMultiPv">
+              MultiPV
+              <span
+                class="info-bubble"
+                tabindex="0"
+                role="tooltip"
+                aria-label="Nombre de meilleures lignes renvoyées par Stockfish pour comparer les variantes."
+                data-tooltip="Nombre de meilleures lignes renvoyées par Stockfish pour comparer les variantes."
+              >?</span>
+            </label>
             <input type="number" id="engineMultiPv" min="1" max="5" value="3" />
           </div>
         </div>
@@ -113,7 +211,14 @@
 
     <div id="lichessSelection" class="lichess-selection" aria-live="polite">
       <div class="lichess-selection-info">
-        Sélectionnez les ouvertures à enrichir avec Explorer Lichess pour limiter les requêtes.
+        Sélectionnez les ouvertures à enrichir avec Explorer Lichess pour limiter les requêtes
+        <span
+          class="info-bubble"
+          tabindex="0"
+          role="tooltip"
+          aria-label="L'analyse Lichess Explorer complète les statistiques par couleur avec les bases de données officielles."
+          data-tooltip="L'analyse Lichess Explorer complète les statistiques par couleur avec les bases de données officielles."
+        >?</span>.
       </div>
       <div class="lichess-selection-actions">
         <span id="lichessSelectionSummary" class="lichess-selection-summary">Blancs : 0 · Noirs : 0</span>
