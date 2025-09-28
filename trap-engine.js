@@ -1,32 +1,7 @@
 // trap-engine.js
 // Moteur de détection de pièges : trie SAN + recos par famille d’ouverture.
 
-function normalizeToTokens(pgn) {
-  if (!pgn || typeof pgn !== "string") return [];
-  let s = pgn
-    .replace(/\{[^}]*\}/g, " ")
-    .replace(/;.*/g, " ")
-    .replace(/\([^)]*\)/g, " ")
-    .replace(/\$\d+/g, " ")
-    .replace(/\b(1-0|0-1|1\/2-1\/2|\*)\b/g, " ")
-    .replace(/\d+\.(\.\.)?/g, " ")
-    .replace(/x/g, "")
-    .replace(/[+#]/g, "")
-    .replace(/=([QRNB])\b/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!s) return [];
-  return s
-    .split(" ")
-    .map((tok) => (tok === "0-0" ? "O-O" : tok === "0-0-0" ? "O-O-O" : tok))
-    .filter(
-      (tok) =>
-        /^O-O(-O)?$/.test(tok) ||
-        /^[KQRNB]?[a-h]?[1-8]?[a-h][1-8]$/.test(tok) ||
-        /^[a-h][1-8]$/.test(tok) ||
-        /^[KQRNB][a-h][1-8]$/.test(tok)
-    );
-}
+import { normalizeToTokens } from "./src/utils/pgn.js";
 
 // Petit util pour savoir le camp au demi-coup i (0 = trait aux Blancs)
 const sideAtPly = (startPly) => (startPly % 2 === 0 ? "white" : "black");

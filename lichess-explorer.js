@@ -1,18 +1,9 @@
 // lichess-explorer.js — outils Explorer & Masters
 // npm i chess.js  (ou <script type="module" src="https://cdn.jsdelivr.net/npm/chess.js@1/dist/chess.min.js">)
 import { Chess } from "https://esm.sh/chess.js";
+import { loadPgnCompat, sanitizeSanSequence } from "./src/utils/pgn.js";
 
-export function loadPgnCompat(chessInstance, pgn, options) {
-  const loader = typeof chessInstance.loadPgn === "function"
-    ? chessInstance.loadPgn
-    : typeof chessInstance.load_pgn === "function"
-      ? chessInstance.load_pgn
-      : null;
-  if (!loader) {
-    throw new Error("No loadPgn function available on chess.js instance");
-  }
-  return loader.call(chessInstance, pgn, options);
-}
+export { loadPgnCompat, sanitizeSanSequence };
 
 const BASE = "https://explorer.lichess.ovh/lichess";
 const MASTER_BASE = "https://explorer.lichess.ovh/master";
@@ -67,14 +58,6 @@ export function pgnToFenAndUci(pgn, limitPlies = 20) {
     .history({ verbose: true })
     .map((m) => m.from + m.to + (m.promotion || ""));
   return { fen, uciMoves, plies: uciMoves.length };
-}
-
-export function sanitizeSanSequence(seq = []) {
-  return (seq || []).map((san) =>
-    String(san || "")
-      .trim()
-      .replace(/[+#?!]/g, "")
-  );
 }
 
 function buildUrlFen({
