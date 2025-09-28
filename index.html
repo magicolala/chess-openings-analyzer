@@ -2134,6 +2134,7 @@
               recommendationSource,
               alternatives,
               tokensBefore,
+              orientation: ourSide,
             });
           }
           if (outOfBook.length) {
@@ -2441,8 +2442,12 @@
         return '';
       }
       const orientation = resolveOrientationForMode(side, mode);
-      const ourSide = orientation;
       const items = entries.slice(0, 3).map((entry) => {
+        const entryOrientation = entry.orientation === 'black'
+          ? 'black'
+          : entry.orientation === 'white'
+            ? 'white'
+            : orientation;
         const moveLabel = `${entry.ply.moveNumber}${entry.ply.color === 'white' ? '.' : '...'} ${escapeHtml(entry.ply.san)}`;
         const coverage = entry.evaluation?.coverage != null
           ? `Couverture GM ${Math.round((entry.evaluation.coverage || 0) * 100)}%`
@@ -2463,7 +2468,7 @@
               : []),
         ]);
         const preview = tokens.length
-          ? buildPreviewButton(tokens, { orientation })
+          ? buildPreviewButton(tokens, { orientation: entryOrientation })
           : '';
         const totalVolume = entry.evaluation?.total || 0;
         const gmMoves = totalVolume && Array.isArray(entry.evaluation?.pickedMoves)
@@ -2488,7 +2493,7 @@
         `;
       }).join('');
       return `
-        <div class="gm-section">
+          <div class="gm-section">
           <div class="gm-entry-title">Sorties de théorie GM</div>
           ${items}
         </div>
