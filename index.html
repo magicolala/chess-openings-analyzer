@@ -120,6 +120,10 @@
         <button type="button" id="runLichessBtn" class="secondary-button" disabled>
           Analyser les ouvertures sélectionnées
         </button>
+        <button type="button" id="resumeLichessBtn" class="secondary-button" hidden>
+          Analyser le reste
+        </button>
+        <span id="lichessCooldownNotice" class="lichess-cooldown-notice" hidden></span>
       </div>
     </div>
 
@@ -626,6 +630,12 @@
         black: new Set(),
       },
       lichessLoading: false,
+      pendingLichess: {
+        white: new Set(),
+        black: new Set(),
+      },
+      lichessCooldownUntil: 0,
+      lichessCooldownTimer: null,
     };
 
     function normalizeSide(side) {
@@ -677,6 +687,23 @@
       return state.selectedOpenings[key];
     }
 
+    function normalizeOpeningCollection(collection) {
+      if (collection instanceof Set) return new Set(collection);
+      if (Array.isArray(collection)) return new Set(collection);
+      return new Set();
+    }
+
+    function setPendingLichessSelections(values = {}) {
+      state.pendingLichess = {
+        white: normalizeOpeningCollection(values.white),
+        black: normalizeOpeningCollection(values.black),
+      };
+    }
+
+    function clearPendingLichessSelections() {
+      setPendingLichessSelections();
+    }
+
     function resetLichessSelection(whiteOpenings, blackOpenings, { limit = 3 } = {}) {
       const pickTop = (openings) => Object.entries(openings || {})
         .sort((a, b) => (b[1]?.count || 0) - (a[1]?.count || 0))
@@ -702,6 +729,82 @@
       return { white, black, total: white + black };
     }
 
+    function countPendingOpenings() {
+      const white = state.pendingLichess?.white instanceof Set ? state.pendingLichess.white.size : 0;
+      const black = state.pendingLichess?.black instanceof Set ? state.pendingLichess.black.size : 0;
+      return { white, black, total: white + black };
+    }
+
+    function hasPendingLichess() {
+      const { total } = countPendingOpenings();
+      return total > 0;
+    }
+
+    function isLichessCooldownActive() {
+      return state.lichessCooldownUntil && Date.now() < state.lichessCooldownUntil;
+    }
+
+    function updateLichessCooldownUi() {
+      const resumeBtn = document.getElementById('resumeLichessBtn');
+      const notice = document.getElementById('lichessCooldownNotice');
+      const counts = countPendingOpenings();
+      const hasPending = counts.total > 0;
+      const cooldownActive = isLichessCooldownActive();
+
+      if (resumeBtn) {
+        resumeBtn.hidden = !hasPending;
+        resumeBtn.disabled = !hasPending || state.lichessLoading || cooldownActive;
+        if (hasPending) {
+          const suffix = counts.total > 0 ? ` (${counts.total})` : '';
+          resumeBtn.textContent = `Analyser le reste${suffix}`;
+        } else {
+          resumeBtn.textContent = 'Analyser le reste';
+        }
+      }
+
+      if (notice) {
+        if (cooldownActive) {
+          const remaining = Math.max(0, state.lichessCooldownUntil - Date.now());
+          const seconds = Math.ceil(remaining / 1000);
+          notice.hidden = false;
+          notice.textContent = `Pause requise par Lichess : réessayez dans ${seconds}s.`;
+        } else {
+          notice.hidden = true;
+          notice.textContent = '';
+        }
+      }
+    }
+
+    function clearLichessCooldown({ skipUiUpdate = false } = {}) {
+      if (state.lichessCooldownTimer) {
+        clearInterval(state.lichessCooldownTimer);
+        state.lichessCooldownTimer = null;
+      }
+      state.lichessCooldownUntil = 0;
+      if (!skipUiUpdate) {
+        updateLichessCooldownUi();
+      }
+    }
+
+    function scheduleLichessCooldown(durationMs = 60000) {
+      if (!Number.isFinite(durationMs) || durationMs <= 0) {
+        durationMs = 60000;
+      }
+      if (state.lichessCooldownTimer) {
+        clearInterval(state.lichessCooldownTimer);
+      }
+      state.lichessCooldownUntil = Date.now() + durationMs;
+      state.lichessCooldownTimer = window.setInterval(() => {
+        if (!isLichessCooldownActive()) {
+          clearLichessCooldown({ skipUiUpdate: true });
+          updateLichessSelectionSummary();
+        } else {
+          updateLichessCooldownUi();
+        }
+      }, 1000);
+      updateLichessSelectionSummary();
+    }
+
     function showLichessSelectionControls() {
       const el = document.getElementById('lichessSelection');
       if (el) el.style.display = 'flex';
@@ -721,13 +824,17 @@
       }
       const btn = document.getElementById('runLichessBtn');
       if (btn) {
-        btn.disabled = total === 0 || state.lichessLoading;
+        const cooldownActive = isLichessCooldownActive();
+        btn.disabled = total === 0 || state.lichessLoading || cooldownActive;
         if (state.lichessLoading) {
           btn.textContent = 'Analyse Lichess en cours…';
+        } else if (cooldownActive) {
+          btn.textContent = 'En attente du délai Lichess…';
         } else {
           btn.textContent = 'Analyser les ouvertures sélectionnées';
         }
       }
+      updateLichessCooldownUi();
     }
 
     function parsePgnTags(pgn) {
@@ -1247,6 +1354,7 @@
       const entries = Object.entries(openingsObject);
       const speed = determineTargetSpeed(chesscomStats, config.speedOverride);
       const ratingBucket = pickLichessBucket(playerElo, { offset: config.ratingOffset || 0 });
+      const side = options.side === 'black' ? 'black' : 'white';
 
       let targetEntries;
       if (Array.isArray(options.onlyOpenings) && options.onlyOpenings.length) {
@@ -1257,9 +1365,14 @@
       }
 
       let analyzed = 0;
-      for (const [name, stats] of targetEntries) {
+      const processed = [];
+      for (let index = 0; index < targetEntries.length; index++) {
+        const [name, stats] = targetEntries[index];
         const sampleTokens = stats._sampleTokens || null;
-        if (!sampleTokens?.length) continue;
+        if (!sampleTokens?.length) {
+          processed.push(name);
+          continue;
+        }
         try {
           const trait = sideToMoveAfter(sampleTokens);
           const out = await adviseFromLichess({
@@ -1276,12 +1389,20 @@
             stats._lichess = out;
             analyzed += 1;
           }
+          processed.push(name);
         } catch (err) {
+          if (err?.status === 429) {
+            err.processedOpenings = processed.slice();
+            err.remainingOpenings = targetEntries.slice(index).map(([openingName]) => openingName);
+            err.lichessSide = side;
+            throw err;
+          }
           console.warn('Explorer Lichess en échec pour', name, err?.status || '', err?.url || '', err);
+          processed.push(name);
         }
       }
 
-      return { speed, ratingBucket, analyzed };
+      return { speed, ratingBucket, analyzed, processedOpenings: processed };
     }
 
     function formatScoreLabel(score) {
@@ -1558,6 +1679,8 @@
       hideError();
       showLoading();
       hideResults();
+      clearPendingLichessSelections();
+      clearLichessCooldown();
       btn.disabled = true;
 
       if (config.engine?.enabled && !config.engine.path) {
@@ -1647,52 +1770,90 @@
       }
     }
 
-    async function runSelectedLichessAnalysis() {
+    async function runSelectedLichessAnalysis(options = {}) {
       if (!state.latestPrep) {
         showError("Aucune préparation disponible pour lancer l'analyse Lichess.");
         return;
       }
 
-      const selections = {
-        white: Array.from(getSelectionSet('white')),
-        black: Array.from(getSelectionSet('black')),
-      };
+      if (state.lichessLoading) {
+        return;
+      }
+
+      if (isLichessCooldownActive()) {
+        const remaining = Math.max(0, state.lichessCooldownUntil - Date.now());
+        const seconds = Math.ceil(remaining / 1000);
+        showError(`Patientez encore ${seconds}s avant de relancer l'analyse Lichess.`);
+        updateLichessSelectionSummary();
+        return;
+      }
+
+      const usePending = options?.resume && hasPendingLichess();
+      const selections = usePending
+        ? {
+            white: Array.from(state.pendingLichess?.white || []),
+            black: Array.from(state.pendingLichess?.black || []),
+          }
+        : {
+            white: Array.from(getSelectionSet('white')),
+            black: Array.from(getSelectionSet('black')),
+          };
 
       if (!selections.white.length && !selections.black.length) {
         return;
       }
 
+      hideError();
       state.lichessLoading = true;
       updateLichessSelectionSummary();
 
+      const pending = {
+        white: new Set(selections.white),
+        black: new Set(selections.black),
+      };
+
+      const { whiteOpenings, blackOpenings, stats, config } = state.latestPrep;
+      const playerElo = computePlayerRating(stats);
+
+      const processSide = async (side, openings) => {
+        const names = Array.from(pending[side]);
+        if (!names.length) return null;
+        const result = await enrichWithLichessSuggestions(
+          openings,
+          playerElo,
+          stats,
+          config,
+          { onlyOpenings: names, side }
+        );
+        if (Array.isArray(result?.processedOpenings)) {
+          result.processedOpenings.forEach((name) => pending[side].delete(name));
+        } else {
+          names.forEach((name) => pending[side].delete(name));
+        }
+        return result;
+      };
+
       try {
-        const { whiteOpenings, blackOpenings, stats, config } = state.latestPrep;
-        const playerElo = computePlayerRating(stats);
-
-        if (selections.white.length) {
-          await enrichWithLichessSuggestions(
-            whiteOpenings,
-            playerElo,
-            stats,
-            config,
-            { onlyOpenings: selections.white }
-          );
-        }
-
-        if (selections.black.length) {
-          await enrichWithLichessSuggestions(
-            blackOpenings,
-            playerElo,
-            stats,
-            config,
-            { onlyOpenings: selections.black }
-          );
-        }
-
+        await processSide('white', whiteOpenings);
+        await processSide('black', blackOpenings);
         displayOpenings(whiteOpenings, blackOpenings, state.mode);
+        clearPendingLichessSelections();
+        clearLichessCooldown();
       } catch (err) {
         if (err?.status === 429) {
-          showError('Trop de requêtes vers Lichess. Patientez une minute avant de réessayer.');
+          const side = err.lichessSide === 'black' ? 'black' : 'white';
+          if (Array.isArray(err.processedOpenings)) {
+            err.processedOpenings.forEach((name) => pending[side].delete(name));
+          }
+          if (Array.isArray(err.remainingOpenings)) {
+            pending[side] = new Set(err.remainingOpenings);
+          }
+          setPendingLichessSelections(pending);
+          const waitMs = err.retryAfterMs || 60000;
+          scheduleLichessCooldown(waitMs);
+          displayOpenings(whiteOpenings, blackOpenings, state.mode);
+          const waitSeconds = Math.ceil(waitMs / 1000);
+          showError(`Trop de requêtes vers Lichess. Patientez ${waitSeconds}s puis utilisez "Analyser le reste".`);
         } else {
           showError(err?.message || "Impossible d'obtenir les recommandations Lichess.");
         }
@@ -2040,6 +2201,8 @@
       hideLichessSelectionControls();
       state.lichessLoading = false;
       state.selectedOpenings = { white: new Set(), black: new Set() };
+      clearPendingLichessSelections();
+      clearLichessCooldown();
       updateLichessSelectionSummary();
       pinnedAnchor = null;
       hideBoardPreview();
@@ -2560,6 +2723,7 @@
     });
     document.getElementById('analyzeBtn').addEventListener('click', runAnalysis);
     document.getElementById('runLichessBtn').addEventListener('click', runSelectedLichessAnalysis);
+    document.getElementById('resumeLichessBtn').addEventListener('click', () => runSelectedLichessAnalysis({ resume: true }));
     document.getElementById('modeOpponent').addEventListener('click', () => setAnalysisMode(ANALYSIS_MODES.opponent));
     document.getElementById('modeSelf').addEventListener('click', () => setAnalysisMode(ANALYSIS_MODES.self));
     document.getElementById('gmMode').addEventListener('change', updateGmOptionVisibility);

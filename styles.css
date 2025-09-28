@@ -235,6 +235,12 @@ button {
   color: #312e81;
 }
 
+.lichess-cooldown-notice {
+  font-size: 13px;
+  color: #4b5563;
+  font-weight: 500;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
