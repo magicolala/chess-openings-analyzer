@@ -2446,6 +2446,8 @@
     let lineModalState = {
       tokens: [],
       fens: [FEN.start],
+      pgns: [''],
+      fullPgn: '',
       index: 0,
       orientation: 'white',
       summary: '',
@@ -2462,27 +2464,54 @@
 
     function prepareModalState(tokens = []) {
       const chess = new Chess();
+      chess.header('Event', 'Chess Openings Analyzer');
+      chess.header('Site', 'Local Analysis');
+      chess.header('Result', '*');
       const sanitized = [];
       const fens = [chess.fen()];
+      const pgns = [''];
       for (const move of tokens) {
         if (!move) continue;
         try {
-          chess.move(move);
+          const played = chess.move(move, { sloppy: true });
+          if (!played) {
+            console.warn('Invalid move skipped in modal', move);
+            break;
+          }
           sanitized.push(move);
           fens.push(chess.fen());
+          const currentPgn = chess.pgn({ newline_char: '\n' }).trim();
+          pgns.push(currentPgn);
         } catch (err) {
           console.warn('Invalid move skipped in modal', move, err);
           break;
         }
       }
-      return { sanitized, fens: fens.length ? fens : [FEN.start] };
+      if (!pgns.length) pgns.push('');
+      const fullPgn = pgns[pgns.length - 1] || '';
+      return {
+        sanitized,
+        fens: fens.length ? fens : [FEN.start],
+        pgns,
+        fullPgn,
+      };
     }
 
-    function lichessUrlFromFen(fen, orientation = 'white') {
-      if (!fen) fen = FEN.start;
-      const encoded = fen.replace(/\s+/g, ' ').trim().replace(/ /g, '_');
+    function buildLichessAnalysisUrl({ fen, orientation = 'white', pgn = '', ply = null } = {}) {
       const color = orientation === 'black' ? 'black' : 'white';
-      return `https://lichess.org/analysis/standard/${encoded}?color=${color}`;
+      const fragment = Number.isInteger(ply) && ply > 0 ? `#${ply}` : '';
+      const normalizedPgn = typeof pgn === 'string' ? pgn.trim() : '';
+      if (normalizedPgn) {
+        const encodedPgn = encodeURIComponent(normalizedPgn);
+        return `https://lichess.org/analysis/pgn/${encodedPgn}?color=${color}${fragment}`;
+      }
+      let targetFen = fen;
+      if (!targetFen) targetFen = FEN.start;
+      const encodedFen = String(targetFen)
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/ /g, '_');
+      return `https://lichess.org/analysis/standard/${encodedFen}?color=${color}${fragment}`;
     }
 
     function renderModalMoves(tokens = []) {
@@ -2546,7 +2575,19 @@
       descriptors.push(side);
       if (lineModalSummary) lineModalSummary.textContent = descriptors.join(' • ');
       if (lineModalTitle) lineModalTitle.textContent = lineModalState.title || 'Séquence';
-      if (lineModalLichess) lineModalLichess.href = lichessUrlFromFen(fen, lineModalState.orientation);
+      if (lineModalLichess) {
+        const fullPgn = lineModalState.fullPgn || '';
+        const prefixPgn = Array.isArray(lineModalState.pgns)
+          ? lineModalState.pgns[clamped] || ''
+          : '';
+        const pgnForUrl = fullPgn.trim() || prefixPgn;
+        lineModalLichess.href = buildLichessAnalysisUrl({
+          fen,
+          orientation: lineModalState.orientation,
+          pgn: pgnForUrl,
+          ply: clamped,
+        });
+      }
       updateModalControls();
       updateModalMovesHighlight();
     }
@@ -2557,6 +2598,8 @@
       lineModalState = {
         tokens: prep.sanitized,
         fens: prep.fens,
+        pgns: prep.pgns,
+        fullPgn: prep.fullPgn,
         index: 0,
         orientation: orientation === 'black' ? 'black' : 'white',
         summary: summary || '',
