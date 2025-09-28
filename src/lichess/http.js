@@ -1,0 +1,53 @@
+import { DEFAULT_FETCH_HEADERS, DEFAULT_RETRYABLE_STATUSES } from "./constants.js";
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function fetchJson(
+  url,
+  {
+    retries = 2,
+    retryDelayMs = 800,
+    retryOnStatuses = DEFAULT_RETRYABLE_STATUSES,
+    headers = DEFAULT_FETCH_HEADERS,
+  } = {}
+) {
+  let attempt = 0;
+  let delayMs = retryDelayMs;
+  while (true) {
+    const response = await fetch(url, { headers });
+    if (response.ok) {
+      return response.json();
+    }
+
+    const status = response.status;
+    if (status === 429) {
+      const retryAfterHeader = Number(response.headers.get("Retry-After"));
+      const retryAfterMs = Number.isFinite(retryAfterHeader)
+        ? Math.max(retryAfterHeader * 1000, 60000)
+        : Math.max(delayMs, 60000);
+      const body = await response.text().catch(() => "");
+      const rateErr = new Error("Lichess API rate limit (status 429)");
+      rateErr.status = 429;
+      rateErr.body = body;
+      rateErr.url = url;
+      rateErr.retryAfterMs = retryAfterMs;
+      throw rateErr;
+    }
+
+    if (retryOnStatuses.includes(status) && attempt < retries) {
+      await wait(delayMs);
+      attempt += 1;
+      delayMs *= 2;
+      continue;
+    }
+
+    const body = await response.text().catch(() => "");
+    const error = new Error(`Lichess API failed with status ${status}`);
+    error.status = status;
+    error.body = body;
+    error.url = url;
+    throw error;
+  }
+}
