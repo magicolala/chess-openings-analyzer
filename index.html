@@ -2026,6 +2026,7 @@
       config,
       ratingBucket,
       speed,
+      isSelfAnalysis = false,
     }) {
       const gmConfig = {
         gmMode: config.gmMode,
@@ -2036,7 +2037,11 @@
       const entries = Object.entries(openingsObject)
         .sort((a, b) => b[1].count - a[1].count)
         .slice(0, 6);
-      const ourSide = playerColor === 'white' ? 'black' : 'white';
+      const ourSide = isSelfAnalysis
+        ? playerColor
+        : playerColor === 'white'
+          ? 'black'
+          : 'white';
 
       for (const [name, stats] of entries) {
         if (!stats._samplePgn) continue;
@@ -2055,14 +2060,23 @@
           for (const item of gmHits) {
             const evaluation = item?.evaluation;
             if (!evaluation?.considered || evaluation.inBook !== false) continue;
-            const tokensBefore = tokens.slice(0, item.ply.ply);
+            const tokensBefore = tokens.slice(
+              0,
+              isSelfAnalysis ? Math.max(0, item.ply.ply - 1) : item.ply.ply
+            );
             let recommendation = null;
             let alternatives = [];
             let recommendationSource = 'lichess';
+            const referenceFen = isSelfAnalysis
+              ? item.ply.fenBefore
+              : item.ply.fenAfter;
 
             try {
+              if (!referenceFen) {
+                throw new Error('FEN indisponible pour la recommandation GM');
+              }
               const data = await fetchExplorer({
-                fen: item.ply.fenAfter,
+                fen: referenceFen,
                 speeds: [speed],
                 ratings: [ratingBucket],
               });
@@ -2075,8 +2089,12 @@
               console.warn('Explorer suggestions indisponibles pour réponse GM', err?.status || '', err?.url || '', err);
             }
 
-            if ((!recommendation || recommendation.total < 10) && config.engine?.enabled) {
-              const engineResult = await engineManager.evaluateFen(item.ply.fenAfter, {
+            if (
+              (!recommendation || recommendation.total < 10) &&
+              config.engine?.enabled &&
+              referenceFen
+            ) {
+              const engineResult = await engineManager.evaluateFen(referenceFen, {
                 depth: config.engine.depth,
                 multipv: config.engine.multipv,
               });
@@ -2279,32 +2297,24 @@
         state.speed = whiteMeta?.speed || blackMeta?.speed || determineTargetSpeed(statsData, config.speedOverride);
         state.ratingBucket = whiteMeta?.ratingBucket || blackMeta?.ratingBucket || pickLichessBucket(playerElo, { offset: config.ratingOffset || 0 });
 
-        if (state.mode === ANALYSIS_MODES.opponent) {
-          await annotateWithGmTheory(whiteOpenings, {
-            playerColor: 'white',
-            config,
-            ratingBucket: state.ratingBucket,
-            speed: state.speed,
-          });
-          await annotateWithGmTheory(blackOpenings, {
-            playerColor: 'black',
-            config,
-            ratingBucket: state.ratingBucket,
-            speed: state.speed,
-          });
-        } else {
-          await annotateWithGmTheory(whiteOpenings, {
-            playerColor: 'white',
-            config,
-            ratingBucket: state.ratingBucket,
-            speed: state.speed,
-          });
-          await annotateWithGmTheory(blackOpenings, {
-            playerColor: 'black',
-            config,
-            ratingBucket: state.ratingBucket,
-            speed: state.speed,
-          });
+        const isSelfAnalysis = state.mode === ANALYSIS_MODES.self;
+
+        await annotateWithGmTheory(whiteOpenings, {
+          playerColor: 'white',
+          config,
+          ratingBucket: state.ratingBucket,
+          speed: state.speed,
+          isSelfAnalysis,
+        });
+        await annotateWithGmTheory(blackOpenings, {
+          playerColor: 'black',
+          config,
+          ratingBucket: state.ratingBucket,
+          speed: state.speed,
+          isSelfAnalysis,
+        });
+
+        if (isSelfAnalysis) {
           await computeImprovementPlans(whiteOpenings, {
             playerColor: 'white',
             ratingBucket: state.ratingBucket,
