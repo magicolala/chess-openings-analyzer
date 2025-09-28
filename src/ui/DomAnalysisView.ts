@@ -2,6 +2,8 @@
 import type { AnalysisController } from '../application/analysis/AnalysisController';
 import { AnalysisMode } from '../application/analysis/state';
 import type { AnalysisView } from './AnalysisView';
+import { Chess } from 'chess.js';
+import { Chessboard } from 'cm-chessboard';
 
 export class DomAnalysisView implements AnalysisView {
   constructor() {}
@@ -23,6 +25,107 @@ export class DomAnalysisView implements AnalysisView {
     const blackDiv = document.getElementById('blackOpenings');
     const prepActions = document.getElementById('prepActions');
     const openingsSection = document.getElementById('openingsSection');
+    const boardPreview = createBoardPreview();
+
+    function createBoardPreview() {
+      const preview = document.getElementById('boardPreview');
+      const boardHost = document.getElementById('boardPreviewBoard');
+      const caption = document.getElementById('boardPreviewCaption');
+      if (!preview || !boardHost || !caption) return null;
+
+      const chess = new Chess();
+      const board = new Chessboard(boardHost, {
+        position: 'start',
+        orientation: 'white',
+        animationDuration: 300,
+        assetsUrl: 'https://unpkg.com/cm-chessboard@7.11.0/assets/',
+        style: {
+          cssClass: 'board-preview-surface',
+          showCoordinates: false,
+          moveMarker: false,
+          borderType: 'none',
+        },
+      });
+
+      preview.setAttribute('aria-hidden', 'true');
+
+      let timer = null;
+      let visible = false;
+
+      function stopCycle() {
+        if (timer) {
+          clearInterval(timer);
+          timer = null;
+        }
+      }
+
+      function computePositions(tokens = []) {
+        chess.reset();
+        const positions = [chess.fen()];
+        for (const san of tokens) {
+          if (!san) continue;
+          try {
+            const move = chess.move(san, { sloppy: true });
+            if (move) {
+              positions.push(chess.fen());
+            }
+          } catch (err) {
+            break;
+          }
+        }
+        return positions;
+      }
+
+      function showPreview({ tokens, title, captionText, orientation }) {
+        const playable = Array.isArray(tokens) ? tokens.filter(Boolean).slice(0, 16) : [];
+        const positions = computePositions(playable);
+        if (!playable.length || positions.length <= 1) {
+          hidePreview();
+          return;
+        }
+        stopCycle();
+        board.setOrientation(orientation === 'black' ? 'black' : 'white');
+        let index = 0;
+        board.setPosition(positions[index], false);
+        caption.textContent = captionText || title || '';
+        preview.classList.add('is-visible');
+        preview.setAttribute('aria-hidden', 'false');
+        visible = true;
+        if (positions.length > 1) {
+          timer = window.setInterval(() => {
+            index = (index + 1) % positions.length;
+            board.setPosition(positions[index], true);
+          }, 1800);
+        }
+      }
+
+      function hidePreview() {
+        stopCycle();
+        preview.classList.remove('is-visible');
+        preview.setAttribute('aria-hidden', 'true');
+        visible = false;
+        caption.textContent = '';
+      }
+
+      function bind(element, data) {
+        if (!element || !data) return;
+        const handleEnter = () => showPreview(data);
+        const handleLeave = () => hidePreview();
+        element.addEventListener('mouseenter', handleEnter);
+        element.addEventListener('focus', handleEnter);
+        element.addEventListener('mouseleave', handleLeave);
+        element.addEventListener('blur', handleLeave);
+        element.addEventListener('touchstart', handleEnter, { passive: true });
+        element.addEventListener('touchend', handleLeave);
+      }
+
+      return {
+        bind,
+        show: showPreview,
+        hide: hidePreview,
+        isActive: () => visible,
+      };
+    }
 
     function hideResults() {
       if (playerInfoDiv) playerInfoDiv.style.display = 'none';
@@ -30,6 +133,7 @@ export class DomAnalysisView implements AnalysisView {
       if (blackDiv) blackDiv.innerHTML = '';
       if (prepActions) prepActions.style.display = 'none';
       if (openingsSection) openingsSection.style.display = 'none';
+      if (boardPreview) boardPreview.hide();
     }
 
     function showResults() {
@@ -160,6 +264,7 @@ export class DomAnalysisView implements AnalysisView {
         const p = document.createElement('p');
         p.textContent = 'Aucune partie récente analysée.';
         container.appendChild(p);
+        if (boardPreview) boardPreview.hide();
         return;
       }
 
@@ -170,10 +275,13 @@ export class DomAnalysisView implements AnalysisView {
       const list = document.createElement('ul');
       list.className = 'opening-list';
 
+      let firstPreview = null;
+
       entries.forEach(([name, stats]) => {
         const item = document.createElement('li');
         item.className = 'opening-item';
         item.dataset.openingName = name;
+        item.tabIndex = 0;
 
         const titleDiv = document.createElement('div');
         titleDiv.className = 'opening-title';
@@ -187,10 +295,30 @@ export class DomAnalysisView implements AnalysisView {
         metaDiv.textContent = `${total} parties · ${winRate}% de victoires`;
         item.appendChild(metaDiv);
 
+        const tokens = Array.isArray(stats._sampleTokens) ? stats._sampleTokens : [];
+        const sampleGame = Array.isArray(stats.games)
+          ? stats.games.find((game) => typeof game?.youAreWhite === 'boolean')
+          : null;
+        const orientation = sampleGame?.youAreWhite === false ? 'black' : 'white';
+        const captionText = `${name} · ${total} parties · ${winRate}% de victoires`;
+        if (boardPreview && tokens.length) {
+          const payload = { tokens, title: name, captionText, orientation };
+          boardPreview.bind(item, payload);
+          if (!firstPreview) firstPreview = payload;
+        }
+
         list.appendChild(item);
       });
 
       container.appendChild(list);
+
+      if (boardPreview) {
+        if (firstPreview && !boardPreview.isActive()) {
+          boardPreview.show(firstPreview);
+        } else if (!firstPreview && !boardPreview.isActive()) {
+          boardPreview.hide();
+        }
+      }
     }
 
     function setAnalysisMode(mode) {

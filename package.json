@@ -23,6 +23,7 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "chess.js": "^1.4.0"
+    "chess.js": "^1.4.0",
+    "cm-chessboard": "^7.11.0"
   }
 }
