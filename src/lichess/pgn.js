@@ -1,4 +1,4 @@
-import { Chess } from "https://esm.sh/chess.js";
+import { Chess } from 'chess.js';
 
 export function loadPgnCompat(chessInstance, pgn, options) {
   const loader = typeof chessInstance.loadPgn === "function"
