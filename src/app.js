@@ -1,10 +1,11 @@
 // Module principal orchestrant l'interface et les flux d'analyse Chess.com.
-import { Chess } from 'https://esm.sh/chess.js';
+import { Chess } from 'chess.js';
 import {
   Chessboard,
   BORDER_TYPE,
   FEN,
-} from 'https://unpkg.com/cm-chessboard@7.11.0/src/Chessboard.js';
+} from 'cm-chessboard';
+import chessboardPiecesUrl from 'cm-chessboard/assets/pieces/standard.svg?url';
 import {
   adviseFromLichess,
   detectGmDeviationsFromPgn,
@@ -2136,8 +2137,10 @@ const boardPreviewBoardEl = document.getElementById('boardPreviewBoard');
 const boardPreviewCaption = document.getElementById('boardPreviewCaption');
 const boardPreviewChessboard = boardPreviewBoardEl
   ? new Chessboard(boardPreviewBoardEl, {
-      assetsUrl: 'https://unpkg.com/cm-chessboard@7.11.0/assets/',
       style: {
+        pieces: {
+          file: chessboardPiecesUrl,
+        },
         showCoordinates: false,
         borderType: BORDER_TYPE.none,
         animationDuration: 0,
@@ -2224,8 +2227,10 @@ const lineModalEnd = document.getElementById('lineModalEnd');
 const lineModalBoardEl = document.getElementById('lineModalBoard');
 const lineModalChessboard = lineModalBoardEl
   ? new Chessboard(lineModalBoardEl, {
-      assetsUrl: 'https://unpkg.com/cm-chessboard@7.11.0/assets/',
       style: {
+        pieces: {
+          file: chessboardPiecesUrl,
+        },
         showCoordinates: true,
         borderType: BORDER_TYPE.frame,
       },

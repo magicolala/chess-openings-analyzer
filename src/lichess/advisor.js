@@ -1,4 +1,4 @@
-import { Chess } from "https://esm.sh/chess.js";
+import { Chess } from 'chess.js';
 import { LICHESS_MIN_EXPECTED_SCORE } from "./constants.js";
 import { fetchExplorer } from "./explorer-service.js";
 import { fetchLichessMasters } from "./masters-service.js";
