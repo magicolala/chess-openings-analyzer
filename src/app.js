@@ -634,14 +634,6 @@ function updateLichessSelectionSummary() {
   updateLichessCooldownUi();
 }
 
-function parsePgnTags(pgn) {
-  const tags = {};
-  const re = /\[(\w+)\s+"([^"]*)"\]/g;
-  let m;
-  while ((m = re.exec(pgn)) !== null) tags[m[1]] = m[2];
-  return tags;
-}
-
 function getCountryNameFromUrl(url) {
   try {
     if (!url) return 'N/A';
@@ -1007,10 +999,13 @@ function aggregateOpenings(games, username) {
     const whiteResult = game.white?.result;
     const blackResult = game.black?.result;
     let result = 'draw';
-    if (whiteResult === 'win') result = youAreWhite ? 'win' : 'loss';
-    else if (blackResult === 'win') result = youAreWhite ? 'loss' : 'win';
-    else if (whiteResult === 'timeout' && blackResult === 'win') result = youAreWhite ? 'loss' : 'win';
-    else if (blackResult === 'timeout' && whiteResult === 'win') result = youAreWhite ? 'win' : 'loss';
+    const whiteTimeoutLoss = whiteResult === 'timeout' && blackResult === 'win';
+    const blackTimeoutLoss = blackResult === 'timeout' && whiteResult === 'win';
+    if (whiteResult === 'win' || blackTimeoutLoss) {
+      result = youAreWhite ? 'win' : 'loss';
+    } else if (blackResult === 'win' || whiteTimeoutLoss) {
+      result = youAreWhite ? 'loss' : 'win';
+    }
 
     if (result === 'win') bucket.wins += 1;
     else if (result === 'draw') bucket.draws += 1;
@@ -1746,7 +1741,6 @@ function renderGmOutOfBook(stats, { side, mode } = {}) {
     }
     return '';
   }
-  const orientation = resolveOrientationForMode(side, mode);
   const items = entries.slice(0, 3).map((entry) => {
     const entrySide = entry.analyzedSide
       || entry.orientation

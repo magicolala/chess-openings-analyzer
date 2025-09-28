@@ -45,3 +45,13 @@ Chaque champ de saisie possède désormais un infobulle qui rappelle son rôle. 
 * `eco-pack-xl.js`: Contient la base de données des ouvertures ECO.
 * `trap-pack-ultra.js`: Contient la base de données des pièges d'ouverture.
 * `lichess-explorer.js`: Gère les appels API vers Lichess Explorer et le post-traitement des réponses.
+
+## Développement
+
+Un linter ESLint est fourni pour garantir une base de code homogène.
+
+```bash
+npm ci
+npm run lint       # vérifie le code
+npm run lint:fix   # corrige automatiquement les problèmes simples
+```
