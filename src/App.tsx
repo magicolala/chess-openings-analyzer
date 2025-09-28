@@ -4,7 +4,7 @@ import { useEffect } from 'react';
  * Composant racine chargé de restituer le markup historique et de déclencher
  * l'initialisation legacy gérée par src/app.js.
  */
-export function App() {
+export default function App() {
   useEffect(() => {
     void import('./app.js');
   }, []);
