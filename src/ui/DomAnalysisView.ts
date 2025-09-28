@@ -22,16 +22,20 @@ export class DomAnalysisView implements AnalysisView {
     const whiteDiv = document.getElementById('whiteOpenings');
     const blackDiv = document.getElementById('blackOpenings');
     const prepActions = document.getElementById('prepActions');
+    const openingsSection = document.getElementById('openingsSection');
 
     function hideResults() {
       if (playerInfoDiv) playerInfoDiv.style.display = 'none';
       if (whiteDiv) whiteDiv.innerHTML = '';
       if (blackDiv) blackDiv.innerHTML = '';
       if (prepActions) prepActions.style.display = 'none';
+      if (openingsSection) openingsSection.style.display = 'none';
     }
 
-    function showPrepActions() {
+    function showResults() {
+      if (playerInfoDiv) playerInfoDiv.style.display = 'block';
       if (prepActions) prepActions.style.display = 'flex';
+      if (openingsSection) openingsSection.style.display = 'grid';
     }
 
     function showError(message) {
@@ -193,7 +197,7 @@ export class DomAnalysisView implements AnalysisView {
         renderPlayerInfo(result.player, result.stats);
         renderOpenings(whiteDiv, 'Plans contre ses Blancs', result.whiteOpenings);
         renderOpenings(blackDiv, 'Plans contre ses Noirs', result.blackOpenings);
-        showPrepActions();
+        showResults();
       } catch (err) {
         showError(err?.message || 'Erreur inconnue');
       } finally {
