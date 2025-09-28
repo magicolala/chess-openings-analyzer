@@ -118,48 +118,79 @@ export class DomAnalysisView implements AnalysisView {
       }
     }
 
+    function createPlayerCard(playerData, statsData) {
+      const card = document.createElement('div');
+      card.className = 'player-card';
+
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'player-name';
+      nameDiv.textContent = playerData.username || 'Inconnu';
+      card.appendChild(nameDiv);
+
+      const ratingDiv = document.createElement('div');
+      ratingDiv.className = 'player-rating';
+      const rating = statsData?.chess_blitz?.last?.rating || statsData?.chess_rapid?.last?.rating || 'N/A';
+      ratingDiv.textContent = `Dernier elo connu : ${rating}`;
+      card.appendChild(ratingDiv);
+
+      return card;
+    }
+
     function renderPlayerInfo(playerData, statsData) {
       if (!playerInfoDiv) return;
       if (!playerData) {
         playerInfoDiv.style.display = 'none';
         return;
       }
-      const username = playerData.username || 'Inconnu';
-      const rating = statsData?.chess_blitz?.last?.rating || statsData?.chess_rapid?.last?.rating || 'N/A';
-      playerInfoDiv.innerHTML = `
-        <div class="player-card">
-          <div class="player-name">${username}</div>
-          <div class="player-rating">Dernier elo connu : ${rating}</div>
-        </div>
-      `;
+      playerInfoDiv.innerHTML = ''; // Clear previous content
+      const card = createPlayerCard(playerData, statsData);
+      playerInfoDiv.appendChild(card);
       playerInfoDiv.style.display = 'block';
     }
 
     function renderOpenings(container, label, openings) {
       if (!container) return;
+      container.innerHTML = ''; // Clear previous content
+
       const entries = Object.entries(openings || {})
         .sort((a, b) => b[1].count - a[1].count)
         .slice(0, 6);
+
       if (!entries.length) {
-        container.innerHTML = '<p>Aucune partie récente analysée.</p>';
+        const p = document.createElement('p');
+        p.textContent = 'Aucune partie récente analysée.';
+        container.appendChild(p);
         return;
       }
-      const items = entries
-        .map(([name, stats]) => {
-          const total = stats.count;
-          const winRate = total ? Math.round((stats.wins / total) * 100) : 0;
-          return `
-            <li class="opening-item" data-opening-name="${name}">
-              <div class="opening-title">${name}</div>
-              <div class="opening-meta">${total} parties · ${winRate}% de victoires</div>
-            </li>
-          `;
-        })
-        .join('');
-      container.innerHTML = `
-        <h3>${label}</h3>
-        <ul class="opening-list">${items}</ul>
-      `;
+
+      const header = document.createElement('h3');
+      header.textContent = label;
+      container.appendChild(header);
+
+      const list = document.createElement('ul');
+      list.className = 'opening-list';
+
+      entries.forEach(([name, stats]) => {
+        const item = document.createElement('li');
+        item.className = 'opening-item';
+        item.dataset.openingName = name;
+
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'opening-title';
+        titleDiv.textContent = name;
+        item.appendChild(titleDiv);
+
+        const metaDiv = document.createElement('div');
+        metaDiv.className = 'opening-meta';
+        const total = stats.count;
+        const winRate = total ? Math.round((stats.wins / total) * 100) : 0;
+        metaDiv.textContent = `${total} parties · ${winRate}% de victoires`;
+        item.appendChild(metaDiv);
+
+        list.appendChild(item);
+      });
+
+      container.appendChild(list);
     }
 
     function setAnalysisMode(mode) {

@@ -1,0 +1,87 @@
+/* styles.css */
+
+.player-card {
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.player-name {
+  font-size: 1.5em;
+  font-weight: bold;
+  color: #333;
+}
+
+.player-rating {
+  font-size: 1em;
+  color: #666;
+  margin-top: 4px;
+}
+
+.opening-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.opening-item {
+  background-color: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s, box-shadow 0.2s;
+}
+
+.opening-item:hover {
+  background-color: #f9f9f9;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.opening-title {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.opening-meta {
+  font-size: 0.9em;
+  color: #7f8c8d;
+  margin-top: 4px;
+}
+
+/* Styles pour les contrôles d'interface */
+.mode-btn.is-active {
+  background-color: #3498db;
+  color: white;
+  border-color: #2980b9;
+}
+
+.subtitle {
+  color: #555;
+  font-style: italic;
+}
+
+.is-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Assurez-vous d'inclure ce fichier dans votre HTML principal */
+/* <link rel="stylesheet" href="styles.css"> */
+
+/* Voici un exemple de structure HTML que vous pourriez avoir */
+/*
+<main>
+  ...
+  <div id="playerInfo"></div>
+  <section id="openingsSection" style="display: none;">
+      <div id="whiteOpenings"></div>
+      <div id="blackOpenings"></div>
+  </section>
+  ...
+</main>
+*/
