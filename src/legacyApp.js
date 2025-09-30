@@ -412,6 +412,8 @@ trapEngine.register([...TRAP_PACK, ...ULTRA_TRAPS]);
 
 const engineManager = new EngineManager();
 
+let pinnedAnchor = null;
+
 const ANALYSIS_MODES = {
   opponent: 'opponent',
   self: 'self',
@@ -1987,6 +1989,14 @@ function showError(message) {
 function hideError() {
   document.getElementById('error').style.display = 'none';
 }
+
+function hideBoardPreview() {
+  const boardPreview = document.getElementById('boardPreview');
+  if (boardPreview) {
+    boardPreview.style.display = 'none';
+  }
+}
+
 function hideResults() {
   document.getElementById('playerInfo').style.display = 'none';
   document.getElementById('openingsSection').style.display = 'none';
@@ -2131,451 +2141,332 @@ function exportPrep(format) {
   }
 }
 
-// ------------ BOARD PREVIEW ------------
-const boardPreview = document.getElementById('boardPreview');
-const boardPreviewBoardEl = document.getElementById('boardPreviewBoard');
-const boardPreviewCaption = document.getElementById('boardPreviewCaption');
-const boardPreviewChessboard = boardPreviewBoardEl
-  ? new Chessboard(boardPreviewBoardEl, {
-      style: {
-        pieces: {
-          file: chessboardPiecesUrl,
+
+
+function initApp() {
+  console.log('initApp called');
+  // ------------ BOARD PREVIEW ------------
+  const boardPreview = document.getElementById('boardPreview');
+  const boardPreviewBoardEl = document.getElementById('boardPreviewBoard');
+  const boardPreviewCaption = document.getElementById('boardPreviewCaption');
+  const boardPreviewChessboard = boardPreviewBoardEl
+    ? new Chessboard(boardPreviewBoardEl, {
+        style: {
+          pieces: {
+            file: chessboardPiecesUrl,
+          },
+          showCoordinates: false,
+          borderType: BORDER_TYPE.none,
+          animationDuration: 0,
         },
-        showCoordinates: false,
-        borderType: BORDER_TYPE.none,
-        animationDuration: 0,
-      },
-    })
-  : null;
-if (boardPreviewChessboard) {
-  boardPreviewChessboard.setPosition(FEN.empty).catch(() => {});
-}
-let pinnedAnchor = null;
-
-function setBoardOrientation(boardInstance, orientation) {
-  if (!boardInstance || !boardInstance.setOrientation) return;
-  const target = orientation === 'black' ? 'black' : 'white';
-  try {
-    const maybe = boardInstance.setOrientation(target);
-    if (maybe?.catch) maybe.catch(() => {});
-  } catch (err) {
-    console.warn('Failed to set orientation', err);
+      })
+    : null;
+  if (boardPreviewChessboard) {
+    boardPreviewChessboard.setPosition(FEN.empty).catch(() => {});
   }
-}
+  let pinnedAnchor = null;
 
-function updateBoardPreviewPosition(fen) {
-  if (!boardPreviewChessboard) return;
-  const targetFen = fen || FEN.empty;
-  boardPreviewChessboard
-    .setPosition(targetFen)
-    .catch(err => {
-      console.warn('Failed to set preview FEN', err);
-      boardPreviewChessboard.setPosition(FEN.empty).catch(() => {});
-    });
-}
-
-function positionBoardPreview(anchor) {
-  const rect = anchor.getBoundingClientRect();
-  const boardWidth = boardPreview.offsetWidth || 240;
-  const boardHeight = boardPreview.offsetHeight || 260;
-  let left = window.scrollX + rect.right + 12;
-  let top = window.scrollY + rect.top;
-
-  const viewportRight = window.scrollX + window.innerWidth;
-  if (left + boardWidth > viewportRight - 16) {
-    left = window.scrollX + rect.left - boardWidth - 12;
-  }
-  if (left < window.scrollX + 12) left = window.scrollX + 12;
-
-  const viewportBottom = window.scrollY + window.innerHeight;
-  if (top + boardHeight > viewportBottom - 16) {
-    top = viewportBottom - boardHeight - 16;
-  }
-  if (top < window.scrollY + 12) top = window.scrollY + 12;
-
-  boardPreview.style.left = `${left}px`;
-  boardPreview.style.top = `${top}px`;
-}
-
-function showBoardPreview(anchor) {
-  if (!anchor) return;
-  const fen = anchor.dataset.fen || '';
-  const line = anchor.dataset.line || '';
-  const orientation = anchor.dataset.orientation === 'black' ? 'black' : 'white';
-  setBoardOrientation(boardPreviewChessboard, orientation);
-  updateBoardPreviewPosition(fen);
-  boardPreviewCaption.textContent = line;
-  boardPreview.style.display = 'block';
-  positionBoardPreview(anchor);
-}
-
-function hideBoardPreview() {
-  boardPreview.style.display = 'none';
-}
-
-// ------------ MODAL BOARD ------------
-const lineModal = document.getElementById('lineModal');
-const lineModalTitle = document.getElementById('lineModalTitle');
-const lineModalSummary = document.getElementById('lineModalSummary');
-const lineModalMoves = document.getElementById('lineModalMoves');
-const lineModalLichess = document.getElementById('lineModalLichess');
-const lineModalClose = document.getElementById('lineModalClose');
-const lineModalStart = document.getElementById('lineModalStart');
-const lineModalPrev = document.getElementById('lineModalPrev');
-const lineModalNext = document.getElementById('lineModalNext');
-const lineModalEnd = document.getElementById('lineModalEnd');
-const lineModalBoardEl = document.getElementById('lineModalBoard');
-const lineModalChessboard = lineModalBoardEl
-  ? new Chessboard(lineModalBoardEl, {
-      style: {
-        pieces: {
-          file: chessboardPiecesUrl,
-        },
-        showCoordinates: true,
-        borderType: BORDER_TYPE.frame,
-      },
-    })
-  : null;
-if (lineModalChessboard) {
-  lineModalChessboard.setPosition(FEN.start).catch(() => {});
-}
-let lineModalMoveButtons = [];
-let lineModalState = {
-  tokens: [],
-  fens: [FEN.start],
-  pgns: [''],
-  fullPgn: '',
-  index: 0,
-  orientation: 'white',
-  summary: '',
-  title: 'Séquence',
-};
-
-function parseMovesAttr(value = '') {
-  if (!value) return [];
-  return value
-    .split('|')
-    .map(v => v.trim())
-    .filter(Boolean);
-}
-
-function prepareModalState(tokens = []) {
-  const chess = new Chess();
-  chess.header('Event', 'Chess Openings Analyzer');
-  chess.header('Site', 'Local Analysis');
-  chess.header('Result', '*');
-  const sanitized = [];
-  const fens = [chess.fen()];
-  const pgns = [''];
-  for (const move of tokens) {
-    if (!move) continue;
+  function setBoardOrientation(boardInstance, orientation) {
+    if (!boardInstance || !boardInstance.setOrientation) return;
+    const target = orientation === 'black' ? 'black' : 'white';
     try {
-      const played = chess.move(move, { sloppy: true });
-      if (!played) {
-        console.warn('Invalid move skipped in modal', move);
+      const maybe = boardInstance.setOrientation(target);
+      if (maybe?.catch) maybe.catch(() => {});
+    } catch (err) {
+      console.warn('Failed to set orientation', err);
+    }
+  }
+
+  function updateBoardPreviewPosition(fen) {
+    if (!boardPreviewChessboard) return;
+    const targetFen = fen || FEN.empty;
+    boardPreviewChessboard
+      .setPosition(targetFen)
+      .catch(err => {
+        console.warn('Failed to set preview FEN', err);
+        boardPreviewChessboard.setPosition(FEN.empty).catch(() => {});
+      });
+  }
+
+  function positionBoardPreview(anchor) {
+    const rect = anchor.getBoundingClientRect();
+    const boardWidth = boardPreview.offsetWidth || 240;
+    const boardHeight = boardPreview.offsetHeight || 260;
+    let left = window.scrollX + rect.right + 12;
+    let top = window.scrollY + rect.top;
+
+    const viewportRight = window.scrollX + window.innerWidth;
+    if (left + boardWidth > viewportRight - 16) {
+      left = window.scrollX + rect.left - boardWidth - 12;
+    }
+    if (left < window.scrollX + 12) left = window.scrollX + 12;
+
+    const viewportBottom = window.scrollY + window.innerHeight;
+    if (top + boardHeight > viewportBottom - 16) {
+      top = viewportBottom - boardHeight - 16;
+    }
+    if (top < window.scrollY + 12) top = window.scrollY + 12;
+
+    boardPreview.style.left = `${left}px`;
+    boardPreview.style.top = `${top}px`;
+  }
+
+  function showBoardPreview(anchor) {
+    if (!anchor) return;
+    const fen = anchor.dataset.fen || '';
+    const line = anchor.dataset.line || '';
+    const orientation = anchor.dataset.orientation === 'black' ? 'black' : 'white';
+    setBoardOrientation(boardPreviewChessboard, orientation);
+    updateBoardPreviewPosition(fen);
+    boardPreviewCaption.textContent = line;
+    boardPreview.style.display = 'block';
+    positionBoardPreview(anchor);
+  }
+
+  // ------------ MODAL BOARD ------------
+  const lineModal = document.getElementById('lineModal');
+  const lineModalTitle = document.getElementById('lineModalTitle');
+  const lineModalSummary = document.getElementById('lineModalSummary');
+  const lineModalMoves = document.getElementById('lineModalMoves');
+  const lineModalLichess = document.getElementById('lineModalLichess');
+  const lineModalClose = document.getElementById('lineModalClose');
+  const lineModalStart = document.getElementById('lineModalStart');
+  const lineModalPrev = document.getElementById('lineModalPrev');
+  const lineModalNext = document.getElementById('lineModalNext');
+  const lineModalEnd = document.getElementById('lineModalEnd');
+  const lineModalBoardEl = document.getElementById('lineModalBoard');
+  const lineModalChessboard = lineModalBoardEl
+    ? new Chessboard(lineModalBoardEl, {
+        style: {
+          pieces: {
+            file: chessboardPiecesUrl,
+          },
+          showCoordinates: true,
+          borderType: BORDER_TYPE.frame,
+        },
+      })
+    : null;
+  if (lineModalChessboard) {
+    lineModalChessboard.setPosition(FEN.start).catch(() => {});
+  }
+  let lineModalMoveButtons = [];
+  let lineModalState = {
+    tokens: [],
+    fens: [FEN.start],
+    pgns: [''],
+    fullPgn: '',
+    index: 0,
+    orientation: 'white',
+    summary: '',
+    title: 'Séquence',
+  };
+
+  function parseMovesAttr(value = '') {
+    if (!value) return [];
+    return value
+      .split('|')
+      .map(v => v.trim())
+      .filter(Boolean);
+  }
+
+  function prepareModalState(tokens = []) {
+    const chess = new Chess();
+    chess.header('Event', 'Chess Openings Analyzer');
+    chess.header('Site', 'Local Analysis');
+    chess.header('Result', '*');
+    const sanitized = [];
+    const fens = [chess.fen()];
+    const pgns = [''];
+    for (const move of tokens) {
+      if (!move) continue;
+      try {
+        const played = chess.move(move, { sloppy: true });
+        if (!played) {
+          console.warn('Invalid move skipped in modal', move);
+          break;
+        }
+        sanitized.push(move);
+        fens.push(chess.fen());
+        const currentPgn = chess.pgn({ newline_char: '\n' }).trim();
+        pgns.push(currentPgn);
+      } catch (err) {
+        console.warn('Invalid move skipped in modal', move, err);
         break;
       }
-      sanitized.push(move);
-      fens.push(chess.fen());
-      const currentPgn = chess.pgn({ newline_char: '\n' }).trim();
-      pgns.push(currentPgn);
-    } catch (err) {
-      console.warn('Invalid move skipped in modal', move, err);
-      break;
     }
+    if (!pgns.length) pgns.push('');
+    const fullPgn = pgns[pgns.length - 1] || '';
+    return {
+      sanitized,
+      fens: fens.length ? fens : [FEN.start],
+      pgns,
+      fullPgn,
+    };
   }
-  if (!pgns.length) pgns.push('');
-  const fullPgn = pgns[pgns.length - 1] || '';
-  return {
-    sanitized,
-    fens: fens.length ? fens : [FEN.start],
-    pgns,
-    fullPgn,
-  };
-}
 
-function buildLichessAnalysisUrl({ fen, orientation = 'white', pgn = '', ply = null } = {}) {
-  const color = orientation === 'black' ? 'black' : 'white';
-  const fragment = Number.isInteger(ply) && ply > 0 ? `#${ply}` : '';
-  const normalizedPgn = typeof pgn === 'string' ? pgn.trim() : '';
-  if (normalizedPgn) {
-    const encodedPgn = encodeURIComponent(normalizedPgn);
-    return `https://lichess.org/analysis/pgn/${encodedPgn}?color=${color}${fragment}`;
+  function buildLichessAnalysisUrl({ fen, orientation = 'white', pgn = '', ply = null } = {}) {
+    const color = orientation === 'black' ? 'black' : 'white';
+    const fragment = Number.isInteger(ply) && ply > 0 ? `#${ply}` : '';
+    const normalizedPgn = typeof pgn === 'string' ? pgn.trim() : '';
+    if (normalizedPgn) {
+      const encodedPgn = encodeURIComponent(normalizedPgn);
+      return `https://lichess.org/analysis/pgn/${encodedPgn}?color=${color}${fragment}`;
+    }
+    let targetFen = fen;
+    if (!targetFen) targetFen = FEN.start;
+    const encodedFen = String(targetFen)
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/ /g, '_');
+    return `https://lichess.org/analysis/standard/${encodedFen}?color=${color}${fragment}`;
   }
-  let targetFen = fen;
-  if (!targetFen) targetFen = FEN.start;
-  const encodedFen = String(targetFen)
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/ /g, '_');
-  return `https://lichess.org/analysis/standard/${encodedFen}?color=${color}${fragment}`;
-}
 
-function renderModalMoves(tokens = []) {
-  if (!lineModalMoves) return;
-  const chips = [`<button type="button" class="move-chip" data-ply="0">Début</button>`];
-  tokens.forEach((move, idx) => {
-    const ply = idx + 1;
-    const moveNumber = Math.ceil(ply / 2);
-    const isWhite = ply % 2 === 1;
-    const label = isWhite
-      ? `${moveNumber}. ${move}`
-      : `${moveNumber}... ${move}`;
-    chips.push(`
-      <button type="button" class="move-chip" data-ply="${ply}">
-        ${escapeHtml(label)}
-      </button>
-    `);
-  });
-  lineModalMoves.innerHTML = chips.join('');
-  lineModalMoveButtons = Array.from(lineModalMoves.querySelectorAll('.move-chip'));
-}
-
-function updateModalControls() {
-  if (!lineModalStart || !lineModalPrev || !lineModalNext || !lineModalEnd) return;
-  lineModalStart.disabled = lineModalState.index === 0;
-  lineModalPrev.disabled = lineModalState.index === 0;
-  const atEnd = lineModalState.index >= lineModalState.tokens.length;
-  lineModalNext.disabled = atEnd;
-  lineModalEnd.disabled = atEnd;
-}
-
-function updateModalMovesHighlight() {
-  if (!lineModalMoveButtons.length) return;
-  lineModalMoveButtons.forEach(btn => {
-    const ply = Number(btn.dataset.ply || '0');
-    btn.classList.toggle('is-active', ply === lineModalState.index);
-    btn.classList.toggle('is-past', ply < lineModalState.index);
-  });
-}
-
-function updateLineModal(index) {
-  if (!lineModal) return;
-  const maxIndex = Math.max(0, lineModalState.fens.length - 1);
-  const clamped = Math.max(0, Math.min(index, maxIndex));
-  lineModalState.index = clamped;
-  const fen = lineModalState.fens[clamped] || FEN.start;
-  setBoardOrientation(lineModalChessboard, lineModalState.orientation);
-  if (lineModalChessboard) {
-    lineModalChessboard.setPosition(fen).catch(() => {});
+  function renderModalMoves(tokens = []) {
+    if (!lineModalMoves) return;
+    const chips = [`<button type="button" class="move-chip" data-ply="0">Début</button>`];
+    tokens.forEach((move, idx) => {
+      const ply = idx + 1;
+      const moveNumber = Math.ceil(ply / 2);
+      const isWhite = ply % 2 === 1;
+      const label = isWhite
+        ? `${moveNumber}. ${move}`
+        : `${moveNumber}... ${move}`;
+      chips.push(`
+        <button type="button" class="move-chip" data-ply="${ply}">
+          ${escapeHtml(label)}
+        </button>
+      `);
+    });
+    lineModalMoves.innerHTML = chips.join('');
+    lineModalMoveButtons = Array.from(lineModalMoves.querySelectorAll('.move-chip'));
   }
-  const descriptors = [];
-  if (lineModalState.summary) descriptors.push(lineModalState.summary);
-  if (clamped === 0) {
-    descriptors.push('Position initiale');
-  } else {
-    const demi = clamped;
-    const moveWord = demi > 1 ? 'demi-coups' : 'demi-coup';
-    descriptors.push(`Après ${demi} ${moveWord}`);
+
+  function updateModalControls() {
+    if (!lineModalStart || !lineModalPrev || !lineModalNext || !lineModalEnd) return;
+    lineModalStart.disabled = lineModalState.index === 0;
+    lineModalPrev.disabled = lineModalState.index === 0;
+    const atEnd = lineModalState.index >= lineModalState.tokens.length;
+    lineModalNext.disabled = atEnd;
+    lineModalEnd.disabled = atEnd;
   }
-  const side = clamped % 2 === 0 ? 'Trait aux Blancs' : 'Trait aux Noirs';
-  descriptors.push(side);
-  if (lineModalSummary) lineModalSummary.textContent = descriptors.join(' • ');
-  if (lineModalTitle) lineModalTitle.textContent = lineModalState.title || 'Séquence';
-  if (lineModalLichess) {
-    const fullPgn = lineModalState.fullPgn || '';
-    const prefixPgn = Array.isArray(lineModalState.pgns)
-      ? lineModalState.pgns[clamped] || ''
-      : '';
-    const pgnForUrl = fullPgn.trim() || prefixPgn;
-    lineModalLichess.href = buildLichessAnalysisUrl({
-      fen,
-      orientation: lineModalState.orientation,
-      pgn: pgnForUrl,
-      ply: clamped,
+
+  function updateModalMovesHighlight() {
+    if (!lineModalMoveButtons.length) return;
+    lineModalMoveButtons.forEach(btn => {
+      const ply = Number(btn.dataset.ply || '0');
+      btn.classList.toggle('is-active', ply === lineModalState.index);
+      btn.classList.toggle('is-past', ply < lineModalState.index);
     });
   }
-  updateModalControls();
-  updateModalMovesHighlight();
-}
 
-function openLineModal({ tokens, title, summary, orientation }) {
-  if (!lineModal) return;
-  const prep = prepareModalState(tokens);
-  lineModalState = {
-    tokens: prep.sanitized,
-    fens: prep.fens,
-    pgns: prep.pgns,
-    fullPgn: prep.fullPgn,
-    index: 0,
-    orientation: orientation === 'black' ? 'black' : 'white',
-    summary: summary || '',
-    title: title || 'Séquence',
-  };
-  renderModalMoves(lineModalState.tokens);
-  updateLineModal(0);
-  lineModal.classList.add('is-open');
-  lineModal.setAttribute('aria-hidden', 'false');
-  document.body.classList.add('modal-open');
-  queueMicrotask(() => {
-    lineModalClose?.focus?.();
-  });
-}
-
-function closeLineModal() {
-  if (!lineModal) return;
-  lineModal.classList.remove('is-open');
-  lineModal.setAttribute('aria-hidden', 'true');
-  document.body.classList.remove('modal-open');
-}
-
-function openLineModalFromElement(element) {
-  if (!element) return false;
-  const moves = element.dataset.moves || element.dataset.mainMoves;
-  const tokens = parseMovesAttr(moves || '');
-  if (!tokens.length) return false;
-  const orientation = element.dataset.orientation === 'black' ? 'black' : 'white';
-  const enclosingOpening = element.closest('.opening-item');
-  const openingName = element.dataset.openingName
-    || enclosingOpening?.dataset?.openingName
-    || 'Séquence';
-  const summary = element.dataset.line
-    || element.dataset.mainLine
-    || enclosingOpening?.dataset?.mainLine
-    || '';
-  openLineModal({ tokens, title: openingName, summary, orientation });
-  return true;
-}
-
-document.body.addEventListener('mouseover', event => {
-  const anchor = event.target.closest('.line-preview');
-  if (!anchor) {
-    if (!pinnedAnchor) hideBoardPreview();
-    return;
-  }
-  if (pinnedAnchor) return;
-  showBoardPreview(anchor);
-});
-
-document.body.addEventListener('click', event => {
-  const previewBtn = event.target.closest('.line-preview');
-  if (previewBtn) {
-    event.preventDefault();
-    openLineModalFromElement(previewBtn);
-    pinnedAnchor = null;
-    hideBoardPreview();
-    return;
-  }
-
-  const openingCard = event.target.closest('.opening-item');
-  if (
-    openingCard &&
-    !event.target.closest('.line-preview') &&
-    !event.target.closest('a') &&
-    !event.target.closest('summary') &&
-    !event.target.closest('button')
-  ) {
-    if (openLineModalFromElement(openingCard)) {
-      event.preventDefault();
-      pinnedAnchor = null;
-      hideBoardPreview();
-      return;
+  function updateLineModal(index) {
+    if (!lineModal) return;
+    const maxIndex = Math.max(0, lineModalState.fens.length - 1);
+    const clamped = Math.max(0, Math.min(index, maxIndex));
+    lineModalState.index = clamped;
+    const fen = lineModalState.fens[clamped] || FEN.start;
+    setBoardOrientation(lineModalChessboard, lineModalState.orientation);
+    if (lineModalChessboard) {
+      lineModalChessboard.setPosition(fen).catch(() => {});
     }
+    const descriptors = [];
+    if (lineModalState.summary) descriptors.push(lineModalState.summary);
+    if (clamped === 0) {
+      descriptors.push('Position initiale');
+    } else {
+      const demi = clamped;
+      const moveWord = demi > 1 ? 'demi-coups' : 'demi-coup';
+      descriptors.push(`Après ${demi} ${moveWord}`);
+    }
+    const side = clamped % 2 === 0 ? 'Trait aux Blancs' : 'Trait aux Noirs';
+    descriptors.push(side);
+    if (lineModalSummary) lineModalSummary.textContent = descriptors.join(' • ');
+    if (lineModalTitle) lineModalTitle.textContent = lineModalState.title || 'Séquence';
+    if (lineModalLichess) {
+      const fullPgn = lineModalState.fullPgn || '';
+      const prefixPgn = Array.isArray(lineModalState.pgns)
+        ? lineModalState.pgns[clamped] || ''
+        : '';
+      const pgnForUrl = fullPgn.trim() || prefixPgn;
+      lineModalLichess.href = buildLichessAnalysisUrl({
+        fen,
+        orientation: lineModalState.orientation,
+        pgn: pgnForUrl,
+        ply: clamped,
+      });
+    }
+    updateModalControls();
+    updateModalMovesHighlight();
   }
 
-  if (!event.target.closest('#boardPreview')) {
-    pinnedAnchor = null;
-    hideBoardPreview();
+  function openLineModal({ tokens, title, summary, orientation }) {
+    if (!lineModal) return;
+    const prep = prepareModalState(tokens);
+    lineModalState = {
+      tokens: prep.sanitized,
+      fens: prep.fens,
+      pgns: prep.pgns,
+      fullPgn: prep.fullPgn,
+      index: 0,
+      orientation: orientation === 'black' ? 'black' : 'white',
+      summary: summary || '',
+      title: title || 'Séquence',
+    };
+    renderModalMoves(lineModalState.tokens);
+    updateLineModal(0);
+    lineModal.classList.add('is-open');
+    lineModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+    queueMicrotask(() => {
+      lineModalClose?.focus?.();
+    });
   }
-});
 
-document.addEventListener('click', event => {
-  if (event.target.closest('.lichess-select')) {
-    event.stopPropagation();
+  function closeLineModal() {
+    if (!lineModal) return;
+    lineModal.classList.remove('is-open');
+    lineModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
   }
-});
 
-document.addEventListener('change', event => {
-  const checkbox = event.target.closest('.lichess-select-checkbox');
-  if (!checkbox) return;
-  const side = checkbox.dataset.side;
-  const name = decodeOpeningKey(checkbox.dataset.opening);
-  if (!side || !name) return;
-  const set = getSelectionSet(side);
-  if (checkbox.checked) {
-    set.add(name);
-  } else {
-    set.delete(name);
+  function openLineModalFromElement(element) {
+    if (!element) return false;
+    const moves = element.dataset.moves || element.dataset.mainMoves;
+    const tokens = parseMovesAttr(moves || '');
+    if (!tokens.length) return false;
+    const orientation = element.dataset.orientation === 'black' ? 'black' : 'white';
+    const enclosingOpening = element.closest('.opening-item');
+    const openingName = element.dataset.openingName
+      || enclosingOpening?.dataset?.openingName
+      || 'Séquence';
+    const summary = element.dataset.line
+      || element.dataset.mainLine
+      || enclosingOpening?.dataset?.mainLine
+      || '';
+    openLineModal({ tokens, title: openingName, summary, orientation });
+    return true;
   }
-  updateLichessSelectionSummary();
-  event.stopPropagation();
-});
 
-document.body.addEventListener('focusin', event => {
-  const anchor = event.target.closest('.line-preview');
-  if (anchor) {
-    pinnedAnchor = anchor;
-    showBoardPreview(anchor);
-  } else if (!event.target.closest('#boardPreview')) {
-    pinnedAnchor = null;
-    hideBoardPreview();
-  }
-});
-
-window.addEventListener('scroll', () => {
-  if (pinnedAnchor && boardPreview.style.display === 'block') {
-    positionBoardPreview(pinnedAnchor);
-  }
-});
-
-window.addEventListener('resize', () => {
-  if (pinnedAnchor && boardPreview.style.display === 'block') {
-    positionBoardPreview(pinnedAnchor);
-  }
-});
-
-if (lineModalMoves) {
-  lineModalMoves.addEventListener('click', event => {
-    const chip = event.target.closest('.move-chip');
-    if (!chip) return;
-    const ply = Number(chip.dataset.ply || '0');
-    updateLineModal(ply);
+  // ------------ EVENTS ------------
+  
+  document.getElementById('username').addEventListener('keydown', e => {
+    if (e.key === 'Enter') runAnalysis();
   });
+  document.getElementById('analyzeBtn').addEventListener('click', runAnalysis);
+  document.getElementById('runLichessBtn').addEventListener('click', runSelectedLichessAnalysis);
+  document.getElementById('resumeLichessBtn').addEventListener('click', () => runSelectedLichessAnalysis({ resume: true }));
+  document.getElementById('modeOpponent').addEventListener('click', () => setAnalysisMode(ANALYSIS_MODES.opponent));
+  document.getElementById('modeSelf').addEventListener('click', () => setAnalysisMode(ANALYSIS_MODES.self));
+  document.getElementById('gmMode').addEventListener('change', updateGmOptionVisibility);
+  document.getElementById('engineEnabled').addEventListener('change', updateEngineControlsAvailability);
+  updateGmOptionVisibility();
+  updateEngineControlsAvailability();
+  setAnalysisMode(state.mode);
+  document.getElementById('exportJsonBtn').addEventListener('click', () => exportPrep('json'));
+  document.getElementById('exportMarkdownBtn').addEventListener('click', () => exportPrep('markdown'));
+  document.getElementById('exportPdfBtn').addEventListener('click', () => exportPrep('pdf'));
+  mountDuelModeView('duelModeRoot');
 }
 
-lineModalStart?.addEventListener('click', () => updateLineModal(0));
-lineModalPrev?.addEventListener('click', () => updateLineModal(lineModalState.index - 1));
-lineModalNext?.addEventListener('click', () => updateLineModal(lineModalState.index + 1));
-lineModalEnd?.addEventListener('click', () => updateLineModal(lineModalState.tokens.length));
-lineModalClose?.addEventListener('click', () => closeLineModal());
-lineModal?.addEventListener('click', event => {
-  if (event.target === lineModal) {
-    closeLineModal();
-  }
-});
-document.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && lineModal?.classList.contains('is-open')) {
-    closeLineModal();
-  }
-  if (event.key === 'ArrowRight' && lineModal?.classList.contains('is-open')) {
-    event.preventDefault();
-    updateLineModal(lineModalState.index + 1);
-  }
-  if (event.key === 'ArrowLeft' && lineModal?.classList.contains('is-open')) {
-    event.preventDefault();
-    updateLineModal(lineModalState.index - 1);
-  }
-});
-
-// ------------ EVENTS ------------
-document.getElementById('username').addEventListener('keydown', e => {
-  if (e.key === 'Enter') runAnalysis();
-});
-document.getElementById('analyzeBtn').addEventListener('click', runAnalysis);
-document.getElementById('runLichessBtn').addEventListener('click', runSelectedLichessAnalysis);
-document.getElementById('resumeLichessBtn').addEventListener('click', () => runSelectedLichessAnalysis({ resume: true }));
-document.getElementById('modeOpponent').addEventListener('click', () => setAnalysisMode(ANALYSIS_MODES.opponent));
-document.getElementById('modeSelf').addEventListener('click', () => setAnalysisMode(ANALYSIS_MODES.self));
-document.getElementById('gmMode').addEventListener('change', updateGmOptionVisibility);
-document.getElementById('engineEnabled').addEventListener('change', updateEngineControlsAvailability);
-updateGmOptionVisibility();
-updateEngineControlsAvailability();
-setAnalysisMode(state.mode);
-document.getElementById('exportJsonBtn').addEventListener('click', () => exportPrep('json'));
-document.getElementById('exportMarkdownBtn').addEventListener('click', () => exportPrep('markdown'));
-document.getElementById('exportPdfBtn').addEventListener('click', () => exportPrep('pdf'));
-mountDuelModeView('duelModeRoot');
-
-// Fournit un export par défaut inerte afin que les anciens points d'entrée
-// qui attendent `export default` ne déclenchent plus d'erreur à l'import.
-export default {};
+// Fournit un export par défaut avec la fonction d'initialisation
+export default { init: initApp };
