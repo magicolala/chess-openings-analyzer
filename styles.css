@@ -244,39 +244,6 @@ body::before {
   transform: translate(-50%, 0);
 }
 
-.engine-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  color: #374151;
-}
-
-.engine-toggle input[type="checkbox"] {
-  transform: scale(1.2);
-}
-
-.engine-options {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.engine-option {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.engine-option label {
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: #64748b;
-  letter-spacing: 0.05em;
-}
-
 input[type="text"],
 input[type="number"],
 select {
