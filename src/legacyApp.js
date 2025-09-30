@@ -112,8 +112,6 @@ registerEcoOpenings(ECO_OPENINGS, { includeTraps: true });
 const trapEngine = new TrapEngine();
 trapEngine.register([...TRAP_PACK, ...ULTRA_TRAPS]);
 
-let pinnedAnchor = null;
-
 const ANALYSIS_MODES = {
   opponent: 'opponent',
   self: 'self',
@@ -214,14 +212,6 @@ function resetLichessSelection(whiteOpenings, blackOpenings, { limit = 3 } = {})
     white: new Set(pickTop(whiteOpenings)),
     black: new Set(pickTop(blackOpenings)),
   };
-}
-
-function decodeOpeningKey(value) {
-  try {
-    return decodeURIComponent(String(value || ''));
-  } catch {
-    return String(value || '');
-  }
 }
 
 function countSelectedOpenings() {
@@ -1176,13 +1166,13 @@ async function runSelectedLichessAnalysis(options = {}) {
   const usePending = options?.resume && hasPendingLichess();
   const selections = usePending
     ? {
-        white: Array.from(state.pendingLichess?.white || []),
-        black: Array.from(state.pendingLichess?.black || []),
-      }
+      white: Array.from(state.pendingLichess?.white || []),
+      black: Array.from(state.pendingLichess?.black || []),
+    }
     : {
-        white: Array.from(getSelectionSet('white')),
-        black: Array.from(getSelectionSet('black')),
-      };
+      white: Array.from(getSelectionSet('white')),
+      black: Array.from(getSelectionSet('black')),
+    };
 
   if (!selections.white.length && !selections.black.length) {
     return;
@@ -1365,8 +1355,8 @@ function renderGmOutOfBook(stats, { side, mode } = {}) {
     const totalVolume = entry.evaluation?.total || 0;
     const gmMoves = totalVolume && Array.isArray(entry.evaluation?.pickedMoves)
       ? entry.evaluation.pickedMoves
-          .map((m) => `${escapeHtml(m.san || '')} (${Math.round((m.volume / totalVolume) * 100)}%)`)
-          .join(', ')
+        .map((m) => `${escapeHtml(m.san || '')} (${Math.round((m.volume / totalVolume) * 100)}%)`)
+        .join(', ')
       : '';
 
     return `
@@ -1596,7 +1586,6 @@ function hideResults() {
   clearPendingLichessSelections();
   clearLichessCooldown();
   updateLichessSelectionSummary();
-  pinnedAnchor = null;
   hideBoardPreview();
 }
 
@@ -1646,8 +1635,8 @@ function buildMarkdown(prep) {
       lines.push(`### ${name} (${stats.count} parties)`);
       const lichessSuggestions = Array.isArray(stats._lichess?.suggestions)
         ? stats._lichess.suggestions.filter(
-            (sug) => (sug?.sideExpectedScore || 0) >= LICHESS_MIN_EXPECTED_SCORE
-          )
+          (sug) => (sug?.sideExpectedScore || 0) >= LICHESS_MIN_EXPECTED_SCORE
+        )
         : [];
       if (lichessSuggestions.length) {
         lines.push('**Coups recommandés :**');
@@ -1737,30 +1726,28 @@ function initApp() {
   // ------------ BOARD PREVIEW ------------
   const boardPreview = document.getElementById('boardPreview');
   const boardPreviewBoardEl = document.getElementById('boardPreviewBoard');
-  const boardPreviewCaption = document.getElementById('boardPreviewCaption');
   const boardPreviewChessboard = boardPreviewBoardEl
     ? new Chessboard(boardPreviewBoardEl, {
-        style: {
-          pieces: {
-            file: chessboardPiecesUrl,
-          },
-          showCoordinates: false,
-          borderType: BORDER_TYPE.none,
-          animationDuration: 0,
+      style: {
+        pieces: {
+          file: chessboardPiecesUrl,
         },
-      })
+        showCoordinates: false,
+        borderType: BORDER_TYPE.none,
+        animationDuration: 0,
+      },
+    })
     : null;
   if (boardPreviewChessboard) {
-    boardPreviewChessboard.setPosition(FEN.empty).catch(() => {});
+    boardPreviewChessboard.setPosition(FEN.empty).catch(() => { });
   }
-  let pinnedAnchor = null;
 
   function setBoardOrientation(boardInstance, orientation) {
     if (!boardInstance || !boardInstance.setOrientation) return;
     const target = orientation === 'black' ? 'black' : 'white';
     try {
       const maybe = boardInstance.setOrientation(target);
-      if (maybe?.catch) maybe.catch(() => {});
+      if (maybe?.catch) maybe.catch(() => { });
     } catch (err) {
       console.warn('Failed to set orientation', err);
     }
@@ -1773,7 +1760,7 @@ function initApp() {
       .setPosition(targetFen)
       .catch(err => {
         console.warn('Failed to set preview FEN', err);
-        boardPreviewChessboard.setPosition(FEN.empty).catch(() => {});
+        boardPreviewChessboard.setPosition(FEN.empty).catch(() => { });
       });
   }
 
@@ -1800,244 +1787,14 @@ function initApp() {
     boardPreview.style.top = `${top}px`;
   }
 
-  function showBoardPreview(anchor) {
-    if (!anchor) return;
-    const fen = anchor.dataset.fen || '';
-    const line = anchor.dataset.line || '';
-    const orientation = anchor.dataset.orientation === 'black' ? 'black' : 'white';
-    setBoardOrientation(boardPreviewChessboard, orientation);
-    updateBoardPreviewPosition(fen);
-    boardPreviewCaption.textContent = line;
-    boardPreview.style.display = 'block';
-    positionBoardPreview(anchor);
-  }
 
-  // ------------ MODAL BOARD ------------
-  const lineModal = document.getElementById('lineModal');
-  const lineModalTitle = document.getElementById('lineModalTitle');
-  const lineModalSummary = document.getElementById('lineModalSummary');
-  const lineModalMoves = document.getElementById('lineModalMoves');
-  const lineModalLichess = document.getElementById('lineModalLichess');
-  const lineModalClose = document.getElementById('lineModalClose');
-  const lineModalStart = document.getElementById('lineModalStart');
-  const lineModalPrev = document.getElementById('lineModalPrev');
-  const lineModalNext = document.getElementById('lineModalNext');
-  const lineModalEnd = document.getElementById('lineModalEnd');
-  const lineModalBoardEl = document.getElementById('lineModalBoard');
-  const lineModalChessboard = lineModalBoardEl
-    ? new Chessboard(lineModalBoardEl, {
-        style: {
-          pieces: {
-            file: chessboardPiecesUrl,
-          },
-          showCoordinates: true,
-          borderType: BORDER_TYPE.frame,
-        },
-      })
-    : null;
-  if (lineModalChessboard) {
-    lineModalChessboard.setPosition(FEN.start).catch(() => {});
-  }
-  let lineModalMoveButtons = [];
-  let lineModalState = {
-    tokens: [],
-    fens: [FEN.start],
-    pgns: [''],
-    fullPgn: '',
-    index: 0,
-    orientation: 'white',
-    summary: '',
-    title: 'Séquence',
-  };
 
-  function parseMovesAttr(value = '') {
-    if (!value) return [];
-    return value
-      .split('|')
-      .map(v => v.trim())
-      .filter(Boolean);
-  }
 
-  function prepareModalState(tokens = []) {
-    const chess = new Chess();
-    chess.header('Event', 'Chess Openings Analyzer');
-    chess.header('Site', 'Local Analysis');
-    chess.header('Result', '*');
-    const sanitized = [];
-    const fens = [chess.fen()];
-    const pgns = [''];
-    for (const move of tokens) {
-      if (!move) continue;
-      try {
-        const played = chess.move(move, { sloppy: true });
-        if (!played) {
-          console.warn('Invalid move skipped in modal', move);
-          break;
-        }
-        sanitized.push(move);
-        fens.push(chess.fen());
-        const currentPgn = chess.pgn({ newline_char: '\n' }).trim();
-        pgns.push(currentPgn);
-      } catch (err) {
-        console.warn('Invalid move skipped in modal', move, err);
-        break;
-      }
-    }
-    if (!pgns.length) pgns.push('');
-    const fullPgn = pgns[pgns.length - 1] || '';
-    return {
-      sanitized,
-      fens: fens.length ? fens : [FEN.start],
-      pgns,
-      fullPgn,
-    };
-  }
 
-  function buildLichessAnalysisUrl({ fen, orientation = 'white', pgn = '', ply = null } = {}) {
-    const color = orientation === 'black' ? 'black' : 'white';
-    const fragment = Number.isInteger(ply) && ply > 0 ? `#${ply}` : '';
-    const normalizedPgn = typeof pgn === 'string' ? pgn.trim() : '';
-    if (normalizedPgn) {
-      const encodedPgn = encodeURIComponent(normalizedPgn);
-      return `https://lichess.org/analysis/pgn/${encodedPgn}?color=${color}${fragment}`;
-    }
-    let targetFen = fen;
-    if (!targetFen) targetFen = FEN.start;
-    const encodedFen = String(targetFen)
-      .replace(/\s+/g, ' ')
-      .trim()
-      .replace(/ /g, '_');
-    return `https://lichess.org/analysis/standard/${encodedFen}?color=${color}${fragment}`;
-  }
 
-  function renderModalMoves(tokens = []) {
-    if (!lineModalMoves) return;
-    const chips = [`<button type="button" class="move-chip" data-ply="0">Début</button>`];
-    tokens.forEach((move, idx) => {
-      const ply = idx + 1;
-      const moveNumber = Math.ceil(ply / 2);
-      const isWhite = ply % 2 === 1;
-      const label = isWhite
-        ? `${moveNumber}. ${move}`
-        : `${moveNumber}... ${move}`;
-      chips.push(`
-        <button type="button" class="move-chip" data-ply="${ply}">
-          ${escapeHtml(label)}
-        </button>
-      `);
-    });
-    lineModalMoves.innerHTML = chips.join('');
-    lineModalMoveButtons = Array.from(lineModalMoves.querySelectorAll('.move-chip'));
-  }
-
-  function updateModalControls() {
-    if (!lineModalStart || !lineModalPrev || !lineModalNext || !lineModalEnd) return;
-    lineModalStart.disabled = lineModalState.index === 0;
-    lineModalPrev.disabled = lineModalState.index === 0;
-    const atEnd = lineModalState.index >= lineModalState.tokens.length;
-    lineModalNext.disabled = atEnd;
-    lineModalEnd.disabled = atEnd;
-  }
-
-  function updateModalMovesHighlight() {
-    if (!lineModalMoveButtons.length) return;
-    lineModalMoveButtons.forEach(btn => {
-      const ply = Number(btn.dataset.ply || '0');
-      btn.classList.toggle('is-active', ply === lineModalState.index);
-      btn.classList.toggle('is-past', ply < lineModalState.index);
-    });
-  }
-
-  function updateLineModal(index) {
-    if (!lineModal) return;
-    const maxIndex = Math.max(0, lineModalState.fens.length - 1);
-    const clamped = Math.max(0, Math.min(index, maxIndex));
-    lineModalState.index = clamped;
-    const fen = lineModalState.fens[clamped] || FEN.start;
-    setBoardOrientation(lineModalChessboard, lineModalState.orientation);
-    if (lineModalChessboard) {
-      lineModalChessboard.setPosition(fen).catch(() => {});
-    }
-    const descriptors = [];
-    if (lineModalState.summary) descriptors.push(lineModalState.summary);
-    if (clamped === 0) {
-      descriptors.push('Position initiale');
-    } else {
-      const demi = clamped;
-      const moveWord = demi > 1 ? 'demi-coups' : 'demi-coup';
-      descriptors.push(`Après ${demi} ${moveWord}`);
-    }
-    const side = clamped % 2 === 0 ? 'Trait aux Blancs' : 'Trait aux Noirs';
-    descriptors.push(side);
-    if (lineModalSummary) lineModalSummary.textContent = descriptors.join(' • ');
-    if (lineModalTitle) lineModalTitle.textContent = lineModalState.title || 'Séquence';
-    if (lineModalLichess) {
-      const fullPgn = lineModalState.fullPgn || '';
-      const prefixPgn = Array.isArray(lineModalState.pgns)
-        ? lineModalState.pgns[clamped] || ''
-        : '';
-      const pgnForUrl = fullPgn.trim() || prefixPgn;
-      lineModalLichess.href = buildLichessAnalysisUrl({
-        fen,
-        orientation: lineModalState.orientation,
-        pgn: pgnForUrl,
-        ply: clamped,
-      });
-    }
-    updateModalControls();
-    updateModalMovesHighlight();
-  }
-
-  function openLineModal({ tokens, title, summary, orientation }) {
-    if (!lineModal) return;
-    const prep = prepareModalState(tokens);
-    lineModalState = {
-      tokens: prep.sanitized,
-      fens: prep.fens,
-      pgns: prep.pgns,
-      fullPgn: prep.fullPgn,
-      index: 0,
-      orientation: orientation === 'black' ? 'black' : 'white',
-      summary: summary || '',
-      title: title || 'Séquence',
-    };
-    renderModalMoves(lineModalState.tokens);
-    updateLineModal(0);
-    lineModal.classList.add('is-open');
-    lineModal.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('modal-open');
-    queueMicrotask(() => {
-      lineModalClose?.focus?.();
-    });
-  }
-
-  function closeLineModal() {
-    if (!lineModal) return;
-    lineModal.classList.remove('is-open');
-    lineModal.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('modal-open');
-  }
-
-  function openLineModalFromElement(element) {
-    if (!element) return false;
-    const moves = element.dataset.moves || element.dataset.mainMoves;
-    const tokens = parseMovesAttr(moves || '');
-    if (!tokens.length) return false;
-    const orientation = element.dataset.orientation === 'black' ? 'black' : 'white';
-    const enclosingOpening = element.closest('.opening-item');
-    const openingName = element.dataset.openingName
-      || enclosingOpening?.dataset?.openingName
-      || 'Séquence';
-    const summary = element.dataset.line
-      || element.dataset.mainLine
-      || enclosingOpening?.dataset?.mainLine
-      || '';
-    openLineModal({ tokens, title: openingName, summary, orientation });
-    return true;
-  }
 
   // ------------ EVENTS ------------
-  
+
   document.getElementById('username').addEventListener('keydown', e => {
     if (e.key === 'Enter') runAnalysis();
   });
@@ -2052,6 +1809,27 @@ function initApp() {
   document.getElementById('exportJsonBtn').addEventListener('click', () => exportPrep('json'));
   document.getElementById('exportMarkdownBtn').addEventListener('click', () => exportPrep('markdown'));
   document.getElementById('exportPdfBtn').addEventListener('click', () => exportPrep('pdf'));
+
+  // Event listeners for board preview on line-preview hover
+  document.addEventListener('mouseenter', (e) => {
+    if (e.target.classList.contains('line-preview')) {
+      const fen = e.target.dataset.fen;
+      const orientation = e.target.dataset.orientation;
+      if (boardPreview) {
+        boardPreview.style.display = 'block';
+        positionBoardPreview(e.target);
+        setBoardOrientation(boardPreviewChessboard, orientation);
+        updateBoardPreviewPosition(fen);
+      }
+    }
+  }, true);
+
+  document.addEventListener('mouseleave', (e) => {
+    if (e.target.classList.contains('line-preview')) {
+      hideBoardPreview();
+    }
+  }, true);
+
   mountDuelModeView('duelModeRoot');
 }
 
