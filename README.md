@@ -8,7 +8,6 @@ Une application web pour analyser les ouvertures d'échecs et préparer rapideme
 * Identification des pièges d'ouverture.
 * Exploration des codes ECO.
 * Intégration avec l'explorateur d'ouvertures de Lichess.
-* Enrichissement manuel des positions par Stockfish local (optionnel).
 
 ## Fonctionnement général
 
@@ -27,10 +26,6 @@ Lorsque vous sélectionnez des lignes dans l'interface, l'application appelle l'
 * les pourcentages de résultats (gains, nulles, défaites) sur la base de données Lichess (classée par cadence et niveau) ;
 * les recommandations des grands maîtres (modes Top 1, Top K ou couverture minimale) pour identifier les coups théoriques majeurs ;
 * des propositions d'amélioration si la ligne personnelle diffère des coups forts.
-
-### 4. Conseils du moteur local (optionnel)
-
-Pour un examen plus fin, vous pouvez activer un moteur Stockfish WebAssembly. Saisissez l'URL du worker (fichier `.js`) et configurez la profondeur ou le MultiPV pour obtenir plusieurs suggestions de lignes.
 
 ## Comment utiliser
 
