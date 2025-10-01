@@ -113,7 +113,6 @@ registerEcoOpenings(ECO_OPENINGS, { includeTraps: true });
 const trapEngine = new TrapEngine();
 trapEngine.register([...TRAP_PACK, ...ULTRA_TRAPS]);
 
-let pinnedAnchor = null;
 
 const ANALYSIS_MODES = {
   opponent: 'opponent',
@@ -215,14 +214,6 @@ function resetLichessSelection(whiteOpenings, blackOpenings, { limit = 3 } = {})
     white: new Set(pickTop(whiteOpenings)),
     black: new Set(pickTop(blackOpenings)),
   };
-}
-
-function decodeOpeningKey(value) {
-  try {
-    return decodeURIComponent(String(value || ''));
-  } catch {
-    return String(value || '');
-  }
 }
 
 function countSelectedOpenings() {
@@ -688,9 +679,6 @@ async function resolveOpeningName({ tokens, explorerParams }) {
   return result;
 }
 
-function getOpeningName(tokens) {
-  return getOpeningNameFromLocal(tokens);
-}
 // ------------ FETCH & ANALYSE ------------
 const MONTHS_TO_CHECK = 3;
 const FETCH_TIMEOUT_MS = 10000;
@@ -1700,7 +1688,6 @@ function hideResults() {
   clearPendingLichessSelections();
   clearLichessCooldown();
   updateLichessSelectionSummary();
-  pinnedAnchor = null;
   hideBoardPreview();
 }
 
@@ -1843,7 +1830,6 @@ function initApp() {
   // ------------ BOARD PREVIEW ------------
   const boardPreview = document.getElementById('boardPreview');
   const boardPreviewBoardEl = document.getElementById('boardPreviewBoard');
-  const boardPreviewCaption = document.getElementById('boardPreviewCaption');
   const boardPreviewChessboard = boardPreviewBoardEl
     ? new Chessboard(boardPreviewBoardEl, {
       style: {
@@ -1859,7 +1845,6 @@ function initApp() {
   if (boardPreviewChessboard) {
     boardPreviewChessboard.setPosition(FEN.empty).catch(() => {});
   }
-  let pinnedAnchor = null;
 
   function setBoardOrientation(boardInstance, orientation) {
     if (!boardInstance || !boardInstance.setOrientation) return;
@@ -1906,17 +1891,6 @@ function initApp() {
     boardPreview.style.top = `${top}px`;
   }
 
-  function showBoardPreview(anchor) {
-    if (!anchor) return;
-    const fen = anchor.dataset.fen || '';
-    const line = anchor.dataset.line || '';
-    const orientation = anchor.dataset.orientation === 'black' ? 'black' : 'white';
-    setBoardOrientation(boardPreviewChessboard, orientation);
-    updateBoardPreviewPosition(fen);
-    boardPreviewCaption.textContent = line;
-    boardPreview.style.display = 'block';
-    positionBoardPreview(anchor);
-  }
 
   // ------------ MODAL BOARD ------------
   const lineModal = document.getElementById('lineModal');
@@ -2170,7 +2144,6 @@ function initApp() {
         positionBoardPreview(target);
         setBoardOrientation(boardPreviewChessboard, orientation);
         updateBoardPreviewPosition(fen);
-        pinnedAnchor = target; // mémorise l’anchor courante
       }
     }
   }, true);
