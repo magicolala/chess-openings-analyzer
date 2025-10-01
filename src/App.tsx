@@ -158,6 +158,63 @@ export default function App() {
             </label>
             <input type="number" id="minMasterGames" min={10} max={500} step={10} defaultValue={50} />
           </div>
+          <div className="control-field toggle-field" id="engineSettings">
+            <span className="control-label">
+              Moteur local
+              <span
+                className="info-bubble"
+                tabIndex={0}
+                role="tooltip"
+                aria-label="Active un moteur Stockfish WebAssembly pour évaluer les positions clés directement dans votre navigateur."
+                data-tooltip="Active un moteur Stockfish WebAssembly pour évaluer les positions clés directement dans votre navigateur."
+              >
+                ?
+              </span>
+            </span>
+            <label className="engine-toggle" htmlFor="engineEnabled">
+              <input type="checkbox" id="engineEnabled" />
+              <span>Activer Stockfish local</span>
+            </label>
+            <input
+              type="text"
+              id="enginePath"
+              placeholder="Chemin Worker Stockfish (optionnel)"
+              autoComplete="off"
+              aria-label="Chemin vers le worker Stockfish"
+            />
+            <div className="engine-options">
+              <div className="engine-option">
+                <label htmlFor="engineDepth">
+                  Profondeur
+                  <span
+                    className="info-bubble"
+                    tabIndex={0}
+                    role="tooltip"
+                    aria-label="Nombre de demi-coups analysés par le moteur pour évaluer une position."
+                    data-tooltip="Nombre de demi-coups analysés par le moteur pour évaluer une position."
+                  >
+                    ?
+                  </span>
+                </label>
+                <input type="number" id="engineDepth" min={6} max={30} defaultValue={18} />
+              </div>
+              <div className="engine-option">
+                <label htmlFor="engineMultiPv">
+                  MultiPV
+                  <span
+                    className="info-bubble"
+                    tabIndex={0}
+                    role="tooltip"
+                    aria-label="Nombre de meilleures lignes renvoyées par Stockfish pour comparer les variantes."
+                    data-tooltip="Nombre de meilleures lignes renvoyées par Stockfish pour comparer les variantes."
+                  >
+                    ?
+                  </span>
+                </label>
+                <input type="number" id="engineMultiPv" min={1} max={5} defaultValue={3} />
+              </div>
+            </div>
+          </div>
           <button id="analyzeBtn" className="primary-action">
             Lancer l&apos;analyse
           </button>

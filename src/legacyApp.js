@@ -1794,7 +1794,6 @@ function initApp() {
 
 
   // ------------ EVENTS ------------
-
   document.getElementById('username').addEventListener('keydown', e => {
     if (e.key === 'Enter') runAnalysis();
   });
