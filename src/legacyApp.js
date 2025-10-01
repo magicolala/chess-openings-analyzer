@@ -10,6 +10,7 @@ import {
   adviseFromLichess,
   detectGmDeviationsFromPgn,
   extractPliesFromPgn,
+  pgnToFenAndUci,
   fetchExplorer,
   LICHESS_MIN_EXPECTED_SCORE,
   pickLichessBucket,
@@ -598,15 +599,28 @@ function canonicalizeOpeningTokens(tokens = [], startTurn = 'white', triedBlackF
 }
 
 // ------------ MATCHING OUVERTURE ------------
-function getOpeningName(tokens) {
+const MAX_OPENING_DETECTION_PLIES = 20;
+const LICHESS_OPENING_CACHE = new Map();
+
+function getOpeningNameFromLocal(tokens) {
   if (!tokens.length) return 'Ouverture inconnue';
-  const MAX_PLIES = Math.min(tokens.length, 20);
-  for (let plies = MAX_PLIES; plies >= 2; plies--) {
+  const maxPlies = Math.min(tokens.length, MAX_OPENING_DETECTION_PLIES);
+  for (let plies = maxPlies; plies >= 2; plies--) {
     const prefix = tokens.slice(0, plies).join(' ');
     if (ECO_OPENINGS.has(prefix)) return ECO_OPENINGS.get(prefix);
+    // Prioriser les séquences les plus longues (souvent issues du pack XL)
+    let bestName = null;
+    let bestLen = -1;
     for (const [pattern, name] of ECO_OPENINGS.entries()) {
-      if (prefix === pattern || prefix.startsWith(pattern + ' ')) return name;
+      if (prefix === pattern || prefix.startsWith(pattern + ' ')) {
+        const len = pattern ? pattern.split(' ').length : 0;
+        if (len > bestLen) {
+          bestLen = len;
+          bestName = name;
+        }
+      }
     }
+    if (bestName) return bestName;
   }
   const first = tokens[0];
   if (FIRST_MOVE_FALLBACK.has(first)) return FIRST_MOVE_FALLBACK.get(first);
@@ -614,6 +628,69 @@ function getOpeningName(tokens) {
   return 'Ouverture inconnue';
 }
 
+function getOpeningDetectionCacheKey({ fen, uciMoves }) {
+  if (fen) return `fen:${fen}`;
+  if (Array.isArray(uciMoves) && uciMoves.length) return `uci:${uciMoves.join(' ')}`;
+  return '';
+}
+
+function toExplorerParamsFromPgn(pgn, limitPlies = MAX_OPENING_DETECTION_PLIES) {
+  if (!pgn) return { fen: null, uciMoves: [], key: '' };
+  try {
+    const { fen, uciMoves } = pgnToFenAndUci(pgn, limitPlies);
+    const moves = Array.isArray(uciMoves) ? uciMoves.filter(Boolean) : [];
+    return {
+      fen: fen || null,
+      uciMoves: moves,
+      key: getOpeningDetectionCacheKey({ fen: fen || null, uciMoves: moves }),
+    };
+  } catch (err) {
+    console.warn('Failed to build explorer params from PGN', err);
+    return { fen: null, uciMoves: [], key: '' };
+  }
+}
+
+async function fetchOpeningFromLichessExplorer(params) {
+  const hasFen = params?.fen;
+  const hasMoves = Array.isArray(params?.uciMoves) && params.uciMoves.length > 0;
+  if (!hasFen && !hasMoves) return null;
+  try {
+    const data = await fetchExplorer({
+      fen: hasFen ? params.fen : undefined,
+      uciMoves: hasMoves ? params.uciMoves : undefined,
+    });
+    const opening = data?.opening;
+    if (opening?.name) {
+      return { name: opening.name, eco: opening.eco || null, source: 'lichess' };
+    }
+  } catch (err) {
+    console.warn('Failed to fetch opening from Lichess explorer', err);
+  }
+  return null;
+}
+
+async function resolveOpeningName({ tokens, explorerParams }) {
+  const localName = getOpeningNameFromLocal(tokens);
+  const hasFen = explorerParams?.fen;
+  const hasMoves = Array.isArray(explorerParams?.uciMoves) && explorerParams.uciMoves.length > 0;
+  if (!hasFen && !hasMoves) {
+    return { name: localName, eco: null, source: 'local' };
+  }
+  const cacheKey = explorerParams?.key;
+  if (cacheKey && LICHESS_OPENING_CACHE.has(cacheKey)) {
+    return LICHESS_OPENING_CACHE.get(cacheKey);
+  }
+  const fetched = await fetchOpeningFromLichessExplorer(explorerParams);
+  const result = fetched || { name: localName, eco: null, source: 'local' };
+  if (cacheKey) {
+    LICHESS_OPENING_CACHE.set(cacheKey, result);
+  }
+  return result;
+}
+
+function getOpeningName(tokens) {
+  return getOpeningNameFromLocal(tokens);
+}
 // ------------ FETCH & ANALYSE ------------
 const MONTHS_TO_CHECK = 3;
 const FETCH_TIMEOUT_MS = 10000;
@@ -675,12 +752,13 @@ function ensureOpeningBucket(collection, name) {
       games: [],
       _sampleTokens: null,
       _samplePgn: null,
+      _mainTokens: null,
     };
   }
   return collection[name];
 }
 
-function aggregateOpenings(games, username) {
+async function aggregateOpenings(games, username) {
   const lower = String(username || '').toLowerCase();
   const whiteOpenings = {};
   const blackOpenings = {};
@@ -691,13 +769,23 @@ function aggregateOpenings(games, username) {
       game.white &&
       game.white.username &&
       String(game.white.username).toLowerCase() === lower;
-    const tokens = normalizeToTokens(game.pgn).slice(0, 20);
-    const openingName = getOpeningName(tokens);
+    const tokens = normalizeToTokens(game.pgn).slice(0, MAX_OPENING_DETECTION_PLIES);
+    const explorerParams = toExplorerParamsFromPgn(game.pgn, MAX_OPENING_DETECTION_PLIES);
+    let openingInfo;
+    try {
+      openingInfo = await resolveOpeningName({ tokens, explorerParams });
+    } catch (err) {
+      console.warn('Failed to resolve opening with Lichess explorer', err);
+      openingInfo = { name: getOpeningNameFromLocal(tokens), eco: null, source: 'local' };
+    }
+    const openingName = openingInfo?.name || getOpeningNameFromLocal(tokens);
     const targetOpenings = youAreWhite ? whiteOpenings : blackOpenings;
     const bucket = ensureOpeningBucket(targetOpenings, openingName);
 
     if (!bucket._sampleTokens && tokens.length) bucket._sampleTokens = tokens;
     if (!bucket._samplePgn && game.pgn) bucket._samplePgn = game.pgn;
+    if (openingInfo?.eco && !bucket.eco) bucket.eco = openingInfo.eco;
+    if (openingInfo?.source && !bucket._openingSource) bucket._openingSource = openingInfo.source;
 
     bucket.count += 1;
     const whiteResult = game.white?.result;
@@ -859,6 +947,21 @@ async function enrichWithLichessSuggestions(openingsObject, playerElo, chesscomS
         out.ratingBucket = ratingBucket;
         out.speed = speed;
         stats._lichess = out;
+
+        // Définir la ligne principale à partir des suggestions Lichess
+        try {
+          const threshold = LICHESS_MIN_EXPECTED_SCORE;
+          const suggestions = Array.isArray(out.suggestions) ? out.suggestions : [];
+          const best = suggestions
+            .filter((s) => (s?.sideExpectedScore || 0) >= threshold)
+            .sort((a, b) => (b.sideExpectedScore - a.sideExpectedScore) || (b.total - a.total))[0]
+            || suggestions[0];
+          if (best?.san) {
+            const base = Array.isArray(sampleTokens) ? sampleTokens : [];
+            const main = sanitizeSanSequence([...base, best.san].filter(Boolean));
+            if (main?.length) stats._mainTokens = main;
+          }
+        } catch {}
         analyzed += 1;
       }
       processed.push(name);
@@ -1091,7 +1194,7 @@ async function runAnalysis() {
   try {
     const context = await fetchPlayerContext(username);
     const { playerData, statsData, games } = context;
-    const { whiteOpenings, blackOpenings } = aggregateOpenings(games, username);
+    const { whiteOpenings, blackOpenings } = await aggregateOpenings(games, username);
     const playerElo = computePlayerRating(statsData);
 
     state.speed = determineTargetSpeed(statsData, config.speedOverride);
@@ -1176,13 +1279,13 @@ async function runSelectedLichessAnalysis(options = {}) {
   const usePending = options?.resume && hasPendingLichess();
   const selections = usePending
     ? {
-        white: Array.from(state.pendingLichess?.white || []),
-        black: Array.from(state.pendingLichess?.black || []),
-      }
+      white: Array.from(state.pendingLichess?.white || []),
+      black: Array.from(state.pendingLichess?.black || []),
+    }
     : {
-        white: Array.from(getSelectionSet('white')),
-        black: Array.from(getSelectionSet('black')),
-      };
+      white: Array.from(getSelectionSet('white')),
+      black: Array.from(getSelectionSet('black')),
+    };
 
   if (!selections.white.length && !selections.black.length) {
     return;
@@ -1365,8 +1468,8 @@ function renderGmOutOfBook(stats, { side, mode } = {}) {
     const totalVolume = entry.evaluation?.total || 0;
     const gmMoves = totalVolume && Array.isArray(entry.evaluation?.pickedMoves)
       ? entry.evaluation.pickedMoves
-          .map((m) => `${escapeHtml(m.san || '')} (${Math.round((m.volume / totalVolume) * 100)}%)`)
-          .join(', ')
+        .map((m) => `${escapeHtml(m.san || '')} (${Math.round((m.volume / totalVolume) * 100)}%)`)
+        .join(', ')
       : '';
 
     return `
@@ -1470,7 +1573,8 @@ function formatOpeningRow(name, stats, extraHtml = '', side = 'white', mode = st
   if (mode === ANALYSIS_MODES.self && stats._improvements?.length) badges.push('<span class="badge badge-improve">Axes +score</span>');
   const badgesHtml = badges.length ? ` ${badges.join(' ')}` : '';
   const labelHtml = `${stats.isTrap ? `<span class="trap-name">${safeName}</span>` : safeName}${badgesHtml}`;
-  const { line: mainLineText, moves: mainMoves } = tokensToLineInfo(stats._sampleTokens || [], { limit: 30 });
+  const tokensForMain = stats._mainTokens || stats._sampleTokens || [];
+  const { line: mainLineText, moves: mainMoves } = tokensToLineInfo(tokensForMain, { limit: 30 });
   const orientation = resolveOrientationForMode(side, mode);
   const dataMainMoves = mainMoves?.length
     ? ` data-main-moves="${escapeHtml(mainMoves.join('|'))}"`
@@ -1515,7 +1619,7 @@ function formatOpeningRow(name, stats, extraHtml = '', side = 'white', mode = st
 function buildOpeningSections(name, stats, side, mode = state.mode) {
   const sections = [];
   const orientation = resolveOrientationForMode(side, mode);
-  const mainLine = renderMainLine(stats._sampleTokens || [], orientation);
+  const mainLine = renderMainLine(stats._mainTokens || stats._sampleTokens || [], orientation);
   if (mainLine) sections.push(mainLine);
 
   const observed = renderObservedTraps(stats.traps || [], orientation);
@@ -1646,8 +1750,8 @@ function buildMarkdown(prep) {
       lines.push(`### ${name} (${stats.count} parties)`);
       const lichessSuggestions = Array.isArray(stats._lichess?.suggestions)
         ? stats._lichess.suggestions.filter(
-            (sug) => (sug?.sideExpectedScore || 0) >= LICHESS_MIN_EXPECTED_SCORE
-          )
+          (sug) => (sug?.sideExpectedScore || 0) >= LICHESS_MIN_EXPECTED_SCORE
+        )
         : [];
       if (lichessSuggestions.length) {
         lines.push('**Coups recommandés :**');
@@ -1733,6 +1837,8 @@ function exportPrep(format) {
 
 
 function initApp() {
+  if (window.__COA_INIT_DONE) return;
+  window.__COA_INIT_DONE = true;
   console.log('initApp called');
   // ------------ BOARD PREVIEW ------------
   const boardPreview = document.getElementById('boardPreview');
@@ -1740,15 +1846,15 @@ function initApp() {
   const boardPreviewCaption = document.getElementById('boardPreviewCaption');
   const boardPreviewChessboard = boardPreviewBoardEl
     ? new Chessboard(boardPreviewBoardEl, {
-        style: {
-          pieces: {
-            file: chessboardPiecesUrl,
-          },
-          showCoordinates: false,
-          borderType: BORDER_TYPE.none,
-          animationDuration: 0,
+      style: {
+        pieces: {
+          file: chessboardPiecesUrl,
         },
-      })
+        showCoordinates: false,
+        borderType: BORDER_TYPE.none,
+        animationDuration: 0,
+      },
+    })
     : null;
   if (boardPreviewChessboard) {
     boardPreviewChessboard.setPosition(FEN.empty).catch(() => {});
@@ -1826,14 +1932,14 @@ function initApp() {
   const lineModalBoardEl = document.getElementById('lineModalBoard');
   const lineModalChessboard = lineModalBoardEl
     ? new Chessboard(lineModalBoardEl, {
-        style: {
-          pieces: {
-            file: chessboardPiecesUrl,
-          },
-          showCoordinates: true,
-          borderType: BORDER_TYPE.frame,
+      style: {
+        pieces: {
+          file: chessboardPiecesUrl,
         },
-      })
+        showCoordinates: true,
+        borderType: BORDER_TYPE.frame,
+      },
+    })
     : null;
   if (lineModalChessboard) {
     lineModalChessboard.setPosition(FEN.start).catch(() => {});
@@ -2037,7 +2143,7 @@ function initApp() {
   }
 
   // ------------ EVENTS ------------
-  
+
   document.getElementById('username').addEventListener('keydown', e => {
     if (e.key === 'Enter') runAnalysis();
   });
@@ -2052,6 +2158,100 @@ function initApp() {
   document.getElementById('exportJsonBtn').addEventListener('click', () => exportPrep('json'));
   document.getElementById('exportMarkdownBtn').addEventListener('click', () => exportPrep('markdown'));
   document.getElementById('exportPdfBtn').addEventListener('click', () => exportPrep('pdf'));
+
+  // Aperçu du plateau au survol des boutons de ligne
+  document.addEventListener('mouseenter', (e) => {
+    const target = e.target;
+    if (target && target.classList && target.classList.contains('line-preview')) {
+      const fen = target.dataset.fen;
+      const orientation = target.dataset.orientation;
+      if (boardPreview) {
+        boardPreview.style.display = 'block';
+        positionBoardPreview(target);
+        setBoardOrientation(boardPreviewChessboard, orientation);
+        updateBoardPreviewPosition(fen);
+        pinnedAnchor = target; // mémorise l’anchor courante
+      }
+    }
+  }, true);
+
+  document.addEventListener('mouseleave', (e) => {
+    const target = e.target;
+    if (target && target.classList && target.classList.contains('line-preview')) {
+      hideBoardPreview();
+    }
+  }, true);
+
+  // Ouvre la modale au clic sur une ligne
+  document.addEventListener('click', (e) => {
+    const target = e.target;
+    if (target && target.classList && target.classList.contains('line-preview')) {
+      if (openLineModalFromElement(target)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }
+  }, true);
+
+  // Contrôles de navigation de la modale
+  if (lineModalClose) lineModalClose.addEventListener('click', closeLineModal);
+  if (lineModalStart) lineModalStart.addEventListener('click', () => updateLineModal(0));
+  if (lineModalPrev) lineModalPrev.addEventListener('click', () => {
+    const nextIndex = Math.max(0, (lineModalState?.index || 0) - 1);
+    updateLineModal(nextIndex);
+  });
+  if (lineModalNext) lineModalNext.addEventListener('click', () => {
+    const max = Math.max(0, ((lineModalState?.fens?.length || 1) - 1));
+    const nextIndex = Math.min(max, (lineModalState?.index || 0) + 1);
+    updateLineModal(nextIndex);
+  });
+  if (lineModalEnd) lineModalEnd.addEventListener('click', () => {
+    const max = Math.max(0, ((lineModalState?.fens?.length || 1) - 1));
+    updateLineModal(max);
+  });
+  if (lineModalMoves) {
+    lineModalMoves.addEventListener('click', (e) => {
+      const btn = e.target;
+      if (btn && btn.classList && btn.classList.contains('move-chip')) {
+        const ply = Number(btn.dataset.ply || '0');
+        const targetIndex = Number.isFinite(ply) ? ply : 0;
+        updateLineModal(targetIndex);
+      }
+    });
+  }
+
+  // Navigation clavier dans la modale
+  document.addEventListener('keydown', (e) => {
+    const modalOpen = lineModal && lineModal.classList && lineModal.classList.contains('is-open');
+    if (!modalOpen) return;
+    const max = Math.max(0, ((lineModalState?.fens?.length || 1) - 1));
+    const idx = (lineModalState?.index || 0);
+    if (e.key === 'Escape') {
+      closeLineModal();
+      return;
+    }
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      updateLineModal(Math.max(0, idx - 1));
+      return;
+    }
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      updateLineModal(Math.min(max, idx + 1));
+      return;
+    }
+    if (e.key === 'Home') {
+      e.preventDefault();
+      updateLineModal(0);
+      return;
+    }
+    if (e.key === 'End') {
+      e.preventDefault();
+      updateLineModal(max);
+      return;
+    }
+  });
+
   mountDuelModeView('duelModeRoot');
 }
 
