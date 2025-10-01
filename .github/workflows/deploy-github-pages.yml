@@ -36,8 +36,8 @@ jobs:
       - name: Verify lint status
         run: npm run lint
 
-      - name: Clean workspace
-        run: rm -rf node_modules
+      - name: Build site
+        run: npm run build
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v4
@@ -45,7 +45,7 @@ jobs:
       - name: Upload static site
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: dist
 
   deploy:
     environment:
