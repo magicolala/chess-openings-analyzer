@@ -1,7 +1,8 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// Configuration Vite orientée React pour bundler l'application et gérer JSX/TS.
+// Vite config for React build and GitHub Pages deployment under the repo subpath.
 export default defineConfig({
+  base: '/chess-openings-analyzer/',
   plugins: [react()],
 });
