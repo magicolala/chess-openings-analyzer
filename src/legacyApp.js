@@ -738,6 +738,8 @@ function ensureOpeningBucket(collection, name) {
       losses: 0,
       traps: [],
       games: [],
+      opponentRatingSum: 0,
+      opponentRatingCount: 0,
       _sampleTokens: null,
       _samplePgn: null,
       _mainTokens: null,
@@ -791,13 +793,26 @@ async function aggregateOpenings(games, username) {
     else if (result === 'draw') bucket.draws += 1;
     else bucket.losses += 1;
 
-    bucket.games.push({
+    const opponentRatingRaw = youAreWhite ? game.black?.rating : game.white?.rating;
+    const opponentRating = Number.isFinite(opponentRatingRaw)
+      ? opponentRatingRaw
+      : Number.parseInt(opponentRatingRaw, 10);
+
+    const gameEntry = {
       pgn: game.pgn,
       youAreWhite,
       endTime: game.end_time,
       url: game.url,
       opponent: youAreWhite ? game.black?.username : game.white?.username,
-    });
+    };
+
+    if (Number.isFinite(opponentRating)) {
+      bucket.opponentRatingSum += opponentRating;
+      bucket.opponentRatingCount += 1;
+      gameEntry.opponentRating = opponentRating;
+    }
+
+    bucket.games.push(gameEntry);
 
     const trapScan = trapEngine.matchPgn(game.pgn, {
       openingLabel: openingName,
@@ -1552,6 +1567,7 @@ function formatOpeningRow(name, stats, extraHtml = '', side = 'white', mode = st
   const winRate = stats.count ? ((stats.wins / stats.count) * 100).toFixed(1) : '0.0';
   const drawRate = stats.count ? ((stats.draws / stats.count) * 100).toFixed(1) : '0.0';
   const lossRate = stats.count ? ((stats.losses / stats.count) * 100).toFixed(1) : '0.0';
+  const avgOpponentElo = stats.opponentRatingCount ? Math.round(stats.opponentRatingSum / stats.opponentRatingCount) : null;
   const safeName = escapeHtml(name);
   const selectionSet = getSelectionSet(side);
   const isSelected = selectionSet.has(name);
@@ -1593,6 +1609,7 @@ function formatOpeningRow(name, stats, extraHtml = '', side = 'white', mode = st
             <span class="opening-stat win-rate">✓ ${winRate}%</span>
             <span class="opening-stat draw-rate">= ${drawRate}%</span>
             <span class="opening-stat loss-rate">✗ ${lossRate}%</span>
+            ${avgOpponentElo !== null ? `<span class="opening-stat opponent-elo">Elo adv. moyen : ${avgOpponentElo}</span>` : ''}
           </div>
           <div class="progress-bar">
             <div class="progress-win" style="width:${winRate}%"></div>
