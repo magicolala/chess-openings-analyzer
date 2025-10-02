@@ -20,11 +20,13 @@ export async function fetchJson(
     retryDelayMs = 800,
     retryOnStatuses = DEFAULT_RETRYABLE_STATUSES,
     headers = DEFAULT_FETCH_HEADERS,
+    maxThrottleRetries = 1,
   } = {}
 ) {
   const execute = async () => {
     let attempt = 0;
     let delayMs = retryDelayMs;
+    let throttleAttempts = 0;
     while (true) {
       const response = await fetch(url, { headers });
       if (response.ok) {
@@ -36,16 +38,22 @@ export async function fetchJson(
         const retryAfterHeader = Number(response.headers.get("Retry-After"));
         const retryAfterMs = Number.isFinite(retryAfterHeader)
           ? Math.max(retryAfterHeader * 1000, 60000)
-          : Math.max(delayMs, 60000);
-        const body = await response.text().catch(() => "");
-        const rateErr = new Error("Lichess API rate limit (status 429)");
-        rateErr.status = 429;
-        rateErr.body = body;
-        rateErr.url = url;
-        rateErr.retryAfterMs = retryAfterMs;
-        throw rateErr;
-      }
+          : Math.max(retryDelayMs, 60000);
 
+        if (throttleAttempts >= maxThrottleRetries) {
+          const body = await response.text().catch(() => "");
+          const rateErr = new Error("Lichess API rate limit (status 429)");
+          rateErr.status = 429;
+          rateErr.body = body;
+          rateErr.url = url;
+          rateErr.retryAfterMs = retryAfterMs;
+          throw rateErr;
+        }
+
+        throttleAttempts += 1;
+        await wait(retryAfterMs);
+        continue;
+      }
       if (retryOnStatuses.includes(status) && attempt < retries) {
         await wait(delayMs);
         attempt += 1;

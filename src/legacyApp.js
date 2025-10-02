@@ -1004,9 +1004,10 @@ function describeGmError(err) {
     };
   }
   if (err.status === 429) {
+    const waitSeconds = err.retryAfterMs ? Math.ceil(err.retryAfterMs / 1000) : 60;
     return {
       type: 'rateLimit',
-      message: "Trop de requêtes vers Lichess Masters. Réessayez dans quelques instants.",
+      message: `Trop de requêtes vers Lichess Masters. Nouvelle tentative dans ${waitSeconds}s.`,
     };
   }
   if (err.status === 404) {
