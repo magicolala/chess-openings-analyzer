@@ -1,26 +1,28 @@
-// Composant d'interface pour piloter le mode Duel.
+import { loadDuelReportSafely } from './duel';
+import { DEFAULT_MAX_GAMES, DuelReport, createEmptyDuelReport } from './types';
 
-import { loadDuelReportSafely } from './duel.js';
-import { DEFAULT_MAX_GAMES, createEmptyDuelReport } from './types.js';
-
-function resolveRoot(target) {
-  if (!target) return null;
+function resolveRoot(target: string | HTMLElement | null | undefined): HTMLElement | null {
+  if (!target) {
+    return null;
+  }
   if (typeof target === 'string') {
     return document.getElementById(target);
   }
   return target;
 }
 
-function formatJoinedDate(date) {
-  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
+function formatJoinedDate(date: Date | null | undefined): string | null {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return null;
+  }
   return new Intl.DateTimeFormat('fr-FR', { year: 'numeric', month: 'long' }).format(date);
 }
 
-function renderPlayerProfile(player, side) {
+function renderPlayerProfile(player: DuelReport['players']['white'], side: 'white' | 'black'): string {
   if (!player) {
     return `<div class="duel-player-card empty">Joueur ${side} inconnu</div>`;
   }
-  const joined = formatJoinedDate(player.joined);
+  const joined = formatJoinedDate(player.joined ?? null);
   const country = player.country ? player.country.toUpperCase() : null;
   return `
     <article class="duel-player-card">
@@ -40,7 +42,7 @@ function renderPlayerProfile(player, side) {
   `;
 }
 
-function renderOpeningStats(openings) {
+function renderOpeningStats(openings: DuelReport['openings']): string {
   if (!openings?.length) {
     return '<p>Aucune ouverture commune détectée pour le moment.</p>';
   }
@@ -72,20 +74,22 @@ function renderOpeningStats(openings) {
   `;
 }
 
-function showStatus(statusEl, message, tone = 'info') {
-  if (!statusEl) return;
+function showStatus(statusEl: HTMLElement | null, message: string, tone: 'info' | 'success' | 'warning' | 'error' = 'info'): void {
+  if (!statusEl) {
+    return;
+  }
   statusEl.textContent = message;
   statusEl.dataset.tone = tone;
   statusEl.hidden = !message;
 }
 
-function toggleLoading(root, isLoading) {
+function toggleLoading(root: HTMLElement | null, isLoading: boolean): void {
   root?.classList.toggle('is-loading', Boolean(isLoading));
 }
 
-function renderReport(root, report) {
-  const playersContainer = root.querySelector('[data-duel-players]');
-  const openingsContainer = root.querySelector('[data-duel-openings]');
+function renderReport(root: HTMLElement, report: DuelReport): void {
+  const playersContainer = root.querySelector<HTMLElement>('[data-duel-players]');
+  const openingsContainer = root.querySelector<HTMLElement>('[data-duel-openings]');
   if (playersContainer) {
     playersContainer.innerHTML = `
       ${renderPlayerProfile(report.players.white, 'white')}
@@ -96,16 +100,18 @@ function renderReport(root, report) {
     if (!report.totalGames && !report.error && (!report.players.white?.username || !report.players.black?.username)) {
       openingsContainer.innerHTML = '<p class="duel-placeholder">Renseignez deux pseudos Chess.com puis lancez le duel pour comparer leurs répertoires.</p>';
     } else if (report.error) {
-      openingsContainer.innerHTML = '<p class="duel-placeholder">Les statistiques d\'ouvertures ne peuvent pas être affichées pour le moment.</p>';
+      openingsContainer.innerHTML = "<p class=\"duel-placeholder\">Les statistiques d'ouvertures ne peuvent pas être affichées pour le moment.</p>";
     } else {
       openingsContainer.innerHTML = renderOpeningStats(report.openings);
     }
   }
 }
 
-export function mountDuelModeView(target) {
+export function mountDuelModeView(target: string | HTMLElement | null | undefined): HTMLElement | null {
   const root = resolveRoot(target);
-  if (!root) return null;
+  if (!root) {
+    return null;
+  }
 
   root.classList.add('duel-mode-root');
   root.innerHTML = `
@@ -142,13 +148,16 @@ export function mountDuelModeView(target) {
     </section>
   `;
 
-  const form = root.querySelector('form');
-  const statusEl = root.querySelector('[data-duel-status]');
+  const form = root.querySelector<HTMLFormElement>('form');
+  const statusEl = root.querySelector<HTMLElement>('[data-duel-status]');
 
   renderReport(root, createEmptyDuelReport());
 
-  form?.addEventListener('submit', async event => {
+  form?.addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (!form) {
+      return;
+    }
     const formData = new FormData(form);
     const white = formData.get('white');
     const black = formData.get('black');
@@ -156,9 +165,12 @@ export function mountDuelModeView(target) {
 
     toggleLoading(root, true);
     showStatus(statusEl, 'Chargement des données Chess.com…', 'info');
-    form.querySelector('button[type="submit"]').disabled = true;
+    const submitButton = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+    if (submitButton) {
+      submitButton.disabled = true;
+    }
 
-    const report = await loadDuelReportSafely({ white, black, maxGames });
+    const report = await loadDuelReportSafely({ white: String(white ?? ''), black: String(black ?? ''), maxGames });
 
     renderReport(root, report);
     if (report.error) {
@@ -169,7 +181,9 @@ export function mountDuelModeView(target) {
       showStatus(statusEl, "Aucune partie récente trouvée. Essayez avec davantage de parties ou d'autres joueurs.", 'warning');
     }
 
-    form.querySelector('button[type="submit"]').disabled = false;
+    if (submitButton) {
+      submitButton.disabled = false;
+    }
     toggleLoading(root, false);
   });
 

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import * as appModule from './legacyApp.js';
+import legacyApp from './legacyApp';
 
 /**
  * Composant racine chargé de restituer le markup historique et de déclencher
@@ -8,7 +8,7 @@ import * as appModule from './legacyApp.js';
 export default function App() {
   useEffect(() => {
     setTimeout(() => {
-      (appModule.default as unknown as { init: () => void }).init();
+      legacyApp.init();
     });
   }, []);
 
