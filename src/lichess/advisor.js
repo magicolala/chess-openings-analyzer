@@ -1,6 +1,6 @@
 import { Chess } from 'chess.js';
 import { LICHESS_MIN_EXPECTED_SCORE } from "./constants.js";
-import { fetchExplorer } from "./explorer-service.js";
+import { explorerQuery } from "../explorer-client.js";
 import { fetchLichessMasters } from "./masters-service.js";
 import { pickLichessBucket } from "./rating.js";
 import { sanitizeSanSequence, loadPgnCompat, extractPliesFromPgn } from "./pgn.js";
@@ -38,7 +38,7 @@ export async function adviseFromLichess({
   const ratings = [pickLichessBucket(playerRating, { offset: ratingOffset })];
   const speeds = [speed];
 
-  const data = await fetchExplorer({ fen, uciMoves, speeds, ratings });
+  const data = await explorerQuery({ fen, uciMoves, speeds, ratings });
   const stm = sideToMove ?? (plies % 2 === 0 ? "white" : "black");
   const suggestions = scoreMoves(data, stm, {
     minExpectedScore: LICHESS_MIN_EXPECTED_SCORE,

@@ -158,6 +158,66 @@ export default function App() {
             </label>
             <input type="number" id="minMasterGames" min={10} max={500} step={10} defaultValue={50} />
           </div>
+          <div className="control-field">
+            <label className="control-label" htmlFor="explorerTtlHours">
+              TTL cache Explorer (h)
+              <span
+                className="info-bubble"
+                tabIndex={0}
+                role="tooltip"
+                aria-label="Durée de conservation des réponses Explorer en cache (en heures)."
+                data-tooltip="Durée de conservation des réponses Explorer en cache (en heures)."
+              >
+                ?
+              </span>
+            </label>
+            <input type="number" id="explorerTtlHours" min={1} max={168} step={1} defaultValue={24} />
+          </div>
+          <div className="control-field">
+            <label className="control-label" htmlFor="minExplorerCount">
+              Volume mini par ouverture
+              <span
+                className="info-bubble"
+                tabIndex={0}
+                role="tooltip"
+                aria-label="Nombre minimal de parties avant de solliciter Lichess Explorer."
+                data-tooltip="Nombre minimal de parties avant de solliciter Lichess Explorer."
+              >
+                ?
+              </span>
+            </label>
+            <input type="number" id="minExplorerCount" min={1} max={20} step={1} defaultValue={3} />
+          </div>
+          <div className="control-field">
+            <label className="control-label" htmlFor="maxExplorerPerSide">
+              Max ouvertures par couleur
+              <span
+                className="info-bubble"
+                tabIndex={0}
+                role="tooltip"
+                aria-label="Nombre maximal d'ouvertures analysées par couleur via Lichess Explorer."
+                data-tooltip="Nombre maximal d'ouvertures analysées par couleur via Lichess Explorer."
+              >
+                ?
+              </span>
+            </label>
+            <input type="number" id="maxExplorerPerSide" min={1} max={12} step={1} defaultValue={6} />
+          </div>
+          <div className="control-field">
+            <label className="control-label" htmlFor="strictExplorerMode">
+              Mode strict Explorer
+              <span
+                className="info-bubble"
+                tabIndex={0}
+                role="tooltip"
+                aria-label="En mode strict, toute indisponibilité Explorer stoppe l'enrichissement et propose de réessayer plus tard."
+                data-tooltip="En mode strict, toute indisponibilité Explorer stoppe l'enrichissement et propose de réessayer plus tard."
+              >
+                ?
+              </span>
+            </label>
+            <input type="checkbox" id="strictExplorerMode" defaultChecked />
+          </div>
           <button id="analyzeBtn" className="primary-action">
             Lancer l&apos;analyse
           </button>
