@@ -47,6 +47,7 @@ export async function fetchJson(
           rateErr.body = body;
           rateErr.url = url;
           rateErr.retryAfterMs = retryAfterMs;
+          rateErr.headers = response.headers;
           throw rateErr;
         }
 

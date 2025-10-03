@@ -7,15 +7,15 @@ import {
 } from 'cm-chessboard';
 import chessboardPiecesUrl from 'cm-chessboard/assets/pieces/standard.svg?url';
 import {
-  adviseFromLichess,
   detectGmDeviationsFromPgn,
   extractPliesFromPgn,
   pgnToFenAndUci,
-  fetchExplorer,
   LICHESS_MIN_EXPECTED_SCORE,
   pickLichessBucket,
   scoreMoves,
 } from '../lichess-explorer.js';
+import { explorerQuery, setExplorerClientOptions } from './explorer-client.js';
+import { adviseCached } from './advise-cached.js';
 import { registerEcoOpenings } from '../eco-pack-xl.js';
 import { TrapEngine, TRAP_PACK } from '../trap-engine.js';
 import { ULTRA_TRAPS } from '../trap-pack-ultra.js';
@@ -119,6 +119,36 @@ const ANALYSIS_MODES = {
   self: 'self',
 };
 
+const MIN_OPENING_COUNT = 3;
+const MAX_OPENINGS_PER_SIDE = 6;
+const MAX_FENS_PER_OPENING = 3;
+
+function shouldQueryOpening(stats = {}, minCount = MIN_OPENING_COUNT) {
+  return (stats.count || 0) >= minCount;
+}
+
+let runFenCache = new Map();
+
+function resetRunFenCache() {
+  runFenCache = new Map();
+}
+
+function explorerOncePerRun(opts = {}) {
+  const key = JSON.stringify({
+    fen: opts.fen || null,
+    uciMoves: opts.uciMoves || null,
+    speeds: opts.speeds || null,
+    ratings: opts.ratings || null,
+    top: opts.top || null,
+  });
+  if (runFenCache.has(key)) {
+    return runFenCache.get(key);
+  }
+  const promise = explorerQuery(opts);
+  runFenCache.set(key, promise);
+  return promise;
+}
+
 const state = {
   mode: ANALYSIS_MODES.opponent,
   latestPrep: null,
@@ -205,10 +235,16 @@ function clearPendingLichessSelections() {
   setPendingLichessSelections();
 }
 
-function resetLichessSelection(whiteOpenings, blackOpenings, { limit = 3 } = {}) {
+function resetLichessSelection(whiteOpenings, blackOpenings, { limit } = {}) {
+  const resolvedLimit = Number.isFinite(limit)
+    ? limit
+    : Number.isFinite(state?.config?.maxExplorerPerSide)
+      ? state.config.maxExplorerPerSide
+      : MAX_OPENINGS_PER_SIDE;
   const pickTop = (openings) => Object.entries(openings || {})
     .sort((a, b) => (b[1]?.count || 0) - (a[1]?.count || 0))
-    .slice(0, limit)
+    .filter(([, stats]) => shouldQueryOpening(stats, state?.config?.minExplorerCount ?? MIN_OPENING_COUNT))
+    .slice(0, resolvedLimit)
     .map(([name]) => name);
   state.selectedOpenings = {
     white: new Set(pickTop(whiteOpenings)),
@@ -646,7 +682,7 @@ async function fetchOpeningFromLichessExplorer(params) {
   const hasMoves = Array.isArray(params?.uciMoves) && params.uciMoves.length > 0;
   if (!hasFen && !hasMoves) return null;
   try {
-    const data = await fetchExplorer({
+    const data = await explorerOncePerRun({
       fen: hasFen ? params.fen : undefined,
       uciMoves: hasMoves ? params.uciMoves : undefined,
     });
@@ -752,6 +788,7 @@ async function aggregateOpenings(games, username) {
   const lower = String(username || '').toLowerCase();
   const whiteOpenings = {};
   const blackOpenings = {};
+  const resolutionCache = new Map();
 
   for (const game of games) {
     if (!game?.pgn) continue;
@@ -763,7 +800,17 @@ async function aggregateOpenings(games, username) {
     const explorerParams = toExplorerParamsFromPgn(game.pgn, MAX_OPENING_DETECTION_PLIES);
     let openingInfo;
     try {
-      openingInfo = await resolveOpeningName({ tokens, explorerParams });
+      if (explorerParams?.key) {
+        if (!resolutionCache.has(explorerParams.key)) {
+          resolutionCache.set(
+            explorerParams.key,
+            resolveOpeningName({ tokens, explorerParams })
+          );
+        }
+        openingInfo = await resolutionCache.get(explorerParams.key);
+      } else {
+        openingInfo = await resolveOpeningName({ tokens, explorerParams });
+      }
     } catch (err) {
       console.warn('Failed to resolve opening with Lichess explorer', err);
       openingInfo = { name: getOpeningNameFromLocal(tokens), eco: null, source: 'local' };
@@ -873,6 +920,10 @@ function readAnalysisConfig() {
     gmTopK: readNumberInput('gmTopK', 3),
     gmCoverage: readNumberInput('gmCoverage', 70) / 100,
     minMasterGames: readNumberInput('minMasterGames', 50),
+    explorerTtlHours: Math.max(1, readNumberInput('explorerTtlHours', 24)),
+    minExplorerCount: Math.max(1, readNumberInput('minExplorerCount', MIN_OPENING_COUNT)),
+    maxExplorerPerSide: Math.max(1, readNumberInput('maxExplorerPerSide', MAX_OPENINGS_PER_SIDE)),
+    strictExplorerMode: Boolean(document.getElementById('strictExplorerMode')?.checked ?? true),
   };
 }
 
@@ -918,27 +969,46 @@ async function enrichWithLichessSuggestions(openingsObject, playerElo, chesscomS
   const speed = determineTargetSpeed(chesscomStats, config.speedOverride);
   const ratingBucket = pickLichessBucket(playerElo, { offset: config.ratingOffset || 0 });
   const side = options.side === 'black' ? 'black' : 'white';
+  const minCount = Number.isFinite(config?.minExplorerCount)
+    ? config.minExplorerCount
+    : MIN_OPENING_COUNT;
+  const maxPerSide = Number.isFinite(config?.maxExplorerPerSide)
+    ? config.maxExplorerPerSide
+    : MAX_OPENINGS_PER_SIDE;
 
   let targetEntries;
   if (Array.isArray(options.onlyOpenings) && options.onlyOpenings.length) {
     const allowed = new Set(options.onlyOpenings);
-    targetEntries = entries.filter(([name]) => allowed.has(name));
+    targetEntries = entries
+      .filter(([name]) => allowed.has(name))
+      .filter(([, stats]) => shouldQueryOpening(stats, minCount));
   } else {
-    targetEntries = entries.sort((a, b) => b[1].count - a[1].count).slice(0, 8);
+    targetEntries = entries
+      .filter(([, stats]) => shouldQueryOpening(stats, minCount))
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, maxPerSide);
   }
 
   let analyzed = 0;
-  const processed = [];
+  const processed = new Set();
+  if (Array.isArray(options.onlyOpenings) && options.onlyOpenings.length) {
+    const eligible = new Set(targetEntries.map(([name]) => name));
+    for (const name of options.onlyOpenings) {
+      if (!eligible.has(name)) {
+        processed.add(name);
+      }
+    }
+  }
   for (let index = 0; index < targetEntries.length; index++) {
     const [name, stats] = targetEntries[index];
     const sampleTokens = stats._sampleTokens || null;
     if (!sampleTokens?.length) {
-      processed.push(name);
+      processed.add(name);
       continue;
     }
     try {
       const trait = sideToMoveAfter(sampleTokens);
-      const out = await adviseFromLichess({
+      const out = await adviseCached({
         tokens: sampleTokens,
         sideToMove: trait,
         playerRating: playerElo,
@@ -951,7 +1021,6 @@ async function enrichWithLichessSuggestions(openingsObject, playerElo, chesscomS
         out.speed = speed;
         stats._lichess = out;
 
-        // Définir la ligne principale à partir des suggestions Lichess
         try {
           const threshold = LICHESS_MIN_EXPECTED_SCORE;
           const suggestions = Array.isArray(out.suggestions) ? out.suggestions : [];
@@ -967,20 +1036,20 @@ async function enrichWithLichessSuggestions(openingsObject, playerElo, chesscomS
         } catch {}
         analyzed += 1;
       }
-      processed.push(name);
+      processed.add(name);
     } catch (err) {
       if (err?.status === 429) {
-        err.processedOpenings = processed.slice();
+        err.processedOpenings = Array.from(processed);
         err.remainingOpenings = targetEntries.slice(index).map(([openingName]) => openingName);
         err.lichessSide = side;
         throw err;
       }
       console.warn('Explorer Lichess en échec pour', name, err?.status || '', err?.url || '', err);
-      processed.push(name);
+      processed.add(name);
     }
   }
 
-  return { speed, ratingBucket, analyzed, processedOpenings: processed };
+  return { speed, ratingBucket, analyzed, processedOpenings: Array.from(processed) };
 }
 
 function formatScoreLabel(score) {
@@ -1035,9 +1104,13 @@ async function annotateWithGmTheory(openingsObject, {
     coverageThreshold: config.gmCoverage,
     minMasterGames: config.minMasterGames,
   };
+  const minCount = Number.isFinite(config?.minExplorerCount)
+    ? config.minExplorerCount
+    : MIN_OPENING_COUNT;
   const entries = Object.entries(openingsObject)
+    .filter(([, stats]) => shouldQueryOpening(stats, minCount))
     .sort((a, b) => b[1].count - a[1].count)
-    .slice(0, 6);
+    .slice(0, 5);
   const ourSide = isSelfAnalysis
     ? playerColor
     : playerColor === 'white'
@@ -1058,7 +1131,10 @@ async function annotateWithGmTheory(openingsObject, {
         gmConfig,
       });
       const outOfBook = [];
+      const seenFen = new Set();
+      let fenBudget = MAX_FENS_PER_OPENING;
       for (const item of gmHits) {
+        if (fenBudget <= 0) break;
         const evaluation = item?.evaluation;
         if (!evaluation?.considered || evaluation.inBook !== false) continue;
         const tokensBefore = tokens.slice(
@@ -1072,11 +1148,15 @@ async function annotateWithGmTheory(openingsObject, {
           ? item.ply.fenBefore
           : item.ply.fenAfter;
 
+        if (!referenceFen || seenFen.has(referenceFen)) {
+          continue;
+        }
+
         try {
           if (!referenceFen) {
             throw new Error('FEN indisponible pour la recommandation GM');
           }
-          const data = await fetchExplorer({
+          const data = await explorerOncePerRun({
             fen: referenceFen,
             speeds: [speed],
             ratings: [ratingBucket],
@@ -1085,6 +1165,8 @@ async function annotateWithGmTheory(openingsObject, {
           if (moves.length) {
             recommendation = moves[0];
             alternatives = moves;
+            seenFen.add(referenceFen);
+            fenBudget -= 1;
           }
         } catch (err) {
           console.warn('Explorer suggestions indisponibles pour réponse GM', err?.status || '', err?.url || '', err);
@@ -1122,8 +1204,10 @@ async function computeImprovementPlans(openingsObject, {
   ratingBucket,
   speed,
   threshold = 0.08,
+  minCount = MIN_OPENING_COUNT,
 }) {
   const entries = Object.entries(openingsObject)
+    .filter(([, stats]) => shouldQueryOpening(stats, minCount))
     .sort((a, b) => b[1].count - a[1].count)
     .slice(0, 5);
   for (const [name, stats] of entries) {
@@ -1135,9 +1219,13 @@ async function computeImprovementPlans(openingsObject, {
       (ply) => ply.color === playerColor
     );
     const improvements = [];
+    const seenFen = new Set();
+    let fenBudget = MAX_FENS_PER_OPENING;
     for (const ply of plies) {
+      if (fenBudget <= 0) break;
+      if (!ply.fenBefore || seenFen.has(ply.fenBefore)) continue;
       try {
-        const data = await fetchExplorer({
+        const data = await explorerOncePerRun({
           fen: ply.fenBefore,
           speeds: [speed],
           ratings: [ratingBucket],
@@ -1155,6 +1243,8 @@ async function computeImprovementPlans(openingsObject, {
 
         if (delta < threshold) continue;
 
+        seenFen.add(ply.fenBefore);
+        fenBudget -= 1;
         const tokensBefore = tokens.slice(0, Math.max(0, ply.ply - 1));
         improvements.push({
           ply,
@@ -1187,6 +1277,8 @@ async function runAnalysis() {
 
   const config = readAnalysisConfig();
   state.config = config;
+  setExplorerClientOptions({ ttlMs: config.explorerTtlHours * 60 * 60 * 1000 });
+  resetRunFenCache();
 
   hideError();
   showLoading();
@@ -1229,12 +1321,14 @@ async function runAnalysis() {
         ratingBucket: state.ratingBucket,
         speed: state.speed,
         threshold: 0.08,
+        minCount: config.minExplorerCount,
       });
       await computeImprovementPlans(blackOpenings, {
         playerColor: 'black',
         ratingBucket: state.ratingBucket,
         speed: state.speed,
         threshold: 0.08,
+        minCount: config.minExplorerCount,
       });
     }
 
@@ -1298,6 +1392,7 @@ async function runSelectedLichessAnalysis(options = {}) {
   hideError();
   state.lichessLoading = true;
   updateLichessSelectionSummary();
+  resetRunFenCache();
 
   const pending = {
     white: new Set(selections.white),
@@ -1341,11 +1436,24 @@ async function runSelectedLichessAnalysis(options = {}) {
         pending[side] = new Set(err.remainingOpenings);
       }
       setPendingLichessSelections(pending);
-      const waitMs = err.retryAfterMs || 60000;
+      let waitMs = err.retryAfterMs || 60000;
+      try {
+        const retryAfterHeader = err.headers?.get?.('Retry-After');
+        if (retryAfterHeader) {
+          const parsed = Number(retryAfterHeader);
+          if (Number.isFinite(parsed)) {
+            waitMs = Math.max(parsed * 1000, waitMs);
+          }
+        }
+      } catch {}
       scheduleLichessCooldown(waitMs);
       displayOpenings(whiteOpenings, blackOpenings, state.mode);
       const waitSeconds = Math.ceil(waitMs / 1000);
-      showError(`Trop de requêtes vers Lichess. Patientez ${waitSeconds}s puis utilisez "Analyser le reste".`);
+      if (config?.strictExplorerMode === false) {
+        showError(`Quota Explorer atteint. Mode souple activé : utilisez les données locales et relancez dans ${waitSeconds}s.`);
+      } else {
+        showError(`Trop de requêtes vers Lichess. Patientez ${waitSeconds}s puis utilisez "Analyser le reste".`);
+      }
     } else {
       showError(err?.message || "Impossible d'obtenir les recommandations Lichess.");
     }
