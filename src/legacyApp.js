@@ -9,7 +9,6 @@ import chessboardPiecesUrl from 'cm-chessboard/assets/pieces/standard.svg?url';
 import {
   detectGmDeviationsFromPgn,
   extractPliesFromPgn,
-  pgnToFenAndUci,
   LICHESS_MIN_EXPECTED_SCORE,
   pickLichessBucket,
   scoreMoves,
@@ -627,7 +626,6 @@ function canonicalizeOpeningTokens(tokens = [], startTurn = 'white', triedBlackF
 
 // ------------ MATCHING OUVERTURE ------------
 const MAX_OPENING_DETECTION_PLIES = 20;
-const LICHESS_OPENING_CACHE = new Map();
 
 function getOpeningNameFromLocal(tokens) {
   if (!tokens.length) return 'Ouverture inconnue';
@@ -655,64 +653,42 @@ function getOpeningNameFromLocal(tokens) {
   return 'Ouverture inconnue';
 }
 
-function getOpeningDetectionCacheKey({ fen, uciMoves }) {
-  if (fen) return `fen:${fen}`;
-  if (Array.isArray(uciMoves) && uciMoves.length) return `uci:${uciMoves.join(' ')}`;
-  return '';
-}
-
-function toExplorerParamsFromPgn(pgn, limitPlies = MAX_OPENING_DETECTION_PLIES) {
-  if (!pgn) return { fen: null, uciMoves: [], key: '' };
-  try {
-    const { fen, uciMoves } = pgnToFenAndUci(pgn, limitPlies);
-    const moves = Array.isArray(uciMoves) ? uciMoves.filter(Boolean) : [];
-    return {
-      fen: fen || null,
-      uciMoves: moves,
-      key: getOpeningDetectionCacheKey({ fen: fen || null, uciMoves: moves }),
-    };
-  } catch (err) {
-    console.warn('Failed to build explorer params from PGN', err);
-    return { fen: null, uciMoves: [], key: '' };
-  }
-}
-
-async function fetchOpeningFromLichessExplorer(params) {
-  const hasFen = params?.fen;
-  const hasMoves = Array.isArray(params?.uciMoves) && params.uciMoves.length > 0;
-  if (!hasFen && !hasMoves) return null;
-  try {
-    const data = await explorerOncePerRun({
-      fen: hasFen ? params.fen : undefined,
-      uciMoves: hasMoves ? params.uciMoves : undefined,
-    });
-    const opening = data?.opening;
-    if (opening?.name) {
-      return { name: opening.name, eco: opening.eco || null, source: 'lichess' };
-    }
-  } catch (err) {
-    console.warn('Failed to fetch opening from Lichess explorer', err);
+function parsePgnTag(pgn, tag) {
+  if (!pgn) return null;
+  const regex = new RegExp(`\\[${tag} "([^"]*)"\\]`, 'i');
+  const match = pgn.match(regex);
+  if (match && match[1]) {
+    const value = match[1].trim();
+    return value.length ? value : null;
   }
   return null;
 }
 
-async function resolveOpeningName({ tokens, explorerParams }) {
-  const localName = getOpeningNameFromLocal(tokens);
-  const hasFen = explorerParams?.fen;
-  const hasMoves = Array.isArray(explorerParams?.uciMoves) && explorerParams.uciMoves.length > 0;
-  if (!hasFen && !hasMoves) {
-    return { name: localName, eco: null, source: 'local' };
+function extractOpeningFromChesscom(game, tokens) {
+  const ecoCode = typeof game?.eco === 'string' && game.eco.trim().length ? game.eco.trim() : null;
+  const directName = typeof game?.opening === 'string' && game.opening.trim().length
+    ? game.opening.trim()
+    : null;
+  if (directName) {
+    return { name: directName, eco: ecoCode, source: 'chesscom' };
   }
-  const cacheKey = explorerParams?.key;
-  if (cacheKey && LICHESS_OPENING_CACHE.has(cacheKey)) {
-    return LICHESS_OPENING_CACHE.get(cacheKey);
+
+  const pgn = game?.pgn || '';
+  const openingTag = parsePgnTag(pgn, 'Opening');
+  const variationTag = parsePgnTag(pgn, 'Variation');
+  const ecoTag = parsePgnTag(pgn, 'ECO') || ecoCode;
+
+  let tagName = openingTag;
+  if (openingTag && variationTag) {
+    tagName = `${openingTag}: ${variationTag}`;
   }
-  const fetched = await fetchOpeningFromLichessExplorer(explorerParams);
-  const result = fetched || { name: localName, eco: null, source: 'local' };
-  if (cacheKey) {
-    LICHESS_OPENING_CACHE.set(cacheKey, result);
+
+  if (tagName) {
+    return { name: tagName, eco: ecoTag || null, source: 'chesscom' };
   }
-  return result;
+
+  const fallback = getOpeningNameFromLocal(tokens);
+  return { name: fallback, eco: ecoTag || null, source: 'local' };
 }
 
 // ------------ FETCH & ANALYSE ------------
@@ -788,7 +764,6 @@ async function aggregateOpenings(games, username) {
   const lower = String(username || '').toLowerCase();
   const whiteOpenings = {};
   const blackOpenings = {};
-  const resolutionCache = new Map();
 
   for (const game of games) {
     if (!game?.pgn) continue;
@@ -797,24 +772,7 @@ async function aggregateOpenings(games, username) {
       game.white.username &&
       String(game.white.username).toLowerCase() === lower;
     const tokens = normalizeToTokens(game.pgn).slice(0, MAX_OPENING_DETECTION_PLIES);
-    const explorerParams = toExplorerParamsFromPgn(game.pgn, MAX_OPENING_DETECTION_PLIES);
-    let openingInfo;
-    try {
-      if (explorerParams?.key) {
-        if (!resolutionCache.has(explorerParams.key)) {
-          resolutionCache.set(
-            explorerParams.key,
-            resolveOpeningName({ tokens, explorerParams })
-          );
-        }
-        openingInfo = await resolutionCache.get(explorerParams.key);
-      } else {
-        openingInfo = await resolveOpeningName({ tokens, explorerParams });
-      }
-    } catch (err) {
-      console.warn('Failed to resolve opening with Lichess explorer', err);
-      openingInfo = { name: getOpeningNameFromLocal(tokens), eco: null, source: 'local' };
-    }
+    const openingInfo = extractOpeningFromChesscom(game, tokens);
     const openingName = openingInfo?.name || getOpeningNameFromLocal(tokens);
     const targetOpenings = youAreWhite ? whiteOpenings : blackOpenings;
     const bucket = ensureOpeningBucket(targetOpenings, openingName);
@@ -1097,6 +1055,7 @@ async function annotateWithGmTheory(openingsObject, {
   ratingBucket,
   speed,
   isSelfAnalysis = false,
+  onlyOpenings = null,
 }) {
   const gmConfig = {
     gmMode: config.gmMode,
@@ -1107,10 +1066,17 @@ async function annotateWithGmTheory(openingsObject, {
   const minCount = Number.isFinite(config?.minExplorerCount)
     ? config.minExplorerCount
     : MIN_OPENING_COUNT;
-  const entries = Object.entries(openingsObject)
-    .filter(([, stats]) => shouldQueryOpening(stats, minCount))
-    .sort((a, b) => b[1].count - a[1].count)
-    .slice(0, 5);
+  let entries = Object.entries(openingsObject)
+    .filter(([, stats]) => shouldQueryOpening(stats, minCount));
+
+  if (Array.isArray(onlyOpenings) && onlyOpenings.length) {
+    const allowed = new Set(onlyOpenings);
+    entries = entries.filter(([name]) => allowed.has(name));
+  } else {
+    entries = entries.sort((a, b) => b[1].count - a[1].count).slice(0, 5);
+  }
+
+  if (!entries.length) return;
   const ourSide = isSelfAnalysis
     ? playerColor
     : playerColor === 'white'
@@ -1205,11 +1171,19 @@ async function computeImprovementPlans(openingsObject, {
   speed,
   threshold = 0.08,
   minCount = MIN_OPENING_COUNT,
+  onlyOpenings = null,
 }) {
-  const entries = Object.entries(openingsObject)
-    .filter(([, stats]) => shouldQueryOpening(stats, minCount))
-    .sort((a, b) => b[1].count - a[1].count)
-    .slice(0, 5);
+  let entries = Object.entries(openingsObject)
+    .filter(([, stats]) => shouldQueryOpening(stats, minCount));
+
+  if (Array.isArray(onlyOpenings) && onlyOpenings.length) {
+    const allowed = new Set(onlyOpenings);
+    entries = entries.filter(([name]) => allowed.has(name));
+  } else {
+    entries = entries.sort((a, b) => b[1].count - a[1].count).slice(0, 5);
+  }
+
+  if (!entries.length) return;
   for (const [name, stats] of entries) {
     if (!stats._samplePgn) continue;
     const tokens = Array.isArray(stats._sampleTokens)
@@ -1298,40 +1272,6 @@ async function runAnalysis() {
 
     resetLichessSelection(whiteOpenings, blackOpenings);
 
-    const isSelfAnalysis = state.mode === ANALYSIS_MODES.self;
-
-    await annotateWithGmTheory(whiteOpenings, {
-      playerColor: 'white',
-      config,
-      ratingBucket: state.ratingBucket,
-      speed: state.speed,
-      isSelfAnalysis,
-    });
-    await annotateWithGmTheory(blackOpenings, {
-      playerColor: 'black',
-      config,
-      ratingBucket: state.ratingBucket,
-      speed: state.speed,
-      isSelfAnalysis,
-    });
-
-    if (isSelfAnalysis) {
-      await computeImprovementPlans(whiteOpenings, {
-        playerColor: 'white',
-        ratingBucket: state.ratingBucket,
-        speed: state.speed,
-        threshold: 0.08,
-        minCount: config.minExplorerCount,
-      });
-      await computeImprovementPlans(blackOpenings, {
-        playerColor: 'black',
-        ratingBucket: state.ratingBucket,
-        speed: state.speed,
-        threshold: 0.08,
-        minCount: config.minExplorerCount,
-      });
-    }
-
     state.latestPrep = {
       mode: state.mode,
       player: playerData,
@@ -1401,6 +1341,10 @@ async function runSelectedLichessAnalysis(options = {}) {
 
   const { whiteOpenings, blackOpenings, stats, config } = state.latestPrep;
   const playerElo = computePlayerRating(stats);
+  const targetSpeed = determineTargetSpeed(stats, config.speedOverride);
+  const ratingBucket = pickLichessBucket(playerElo, { offset: config.ratingOffset || 0 });
+  state.speed = targetSpeed;
+  state.ratingBucket = ratingBucket;
 
   const processSide = async (side, openings) => {
     const names = Array.from(pending[side]);
@@ -1423,6 +1367,53 @@ async function runSelectedLichessAnalysis(options = {}) {
   try {
     await processSide('white', whiteOpenings);
     await processSide('black', blackOpenings);
+
+    const processedWhite = selections.white.filter((name) => !pending.white.has(name));
+    const processedBlack = selections.black.filter((name) => !pending.black.has(name));
+    const isSelfAnalysis = state.mode === ANALYSIS_MODES.self;
+
+    if (processedWhite.length) {
+      await annotateWithGmTheory(whiteOpenings, {
+        playerColor: 'white',
+        config,
+        ratingBucket,
+        speed: targetSpeed,
+        isSelfAnalysis,
+        onlyOpenings: processedWhite,
+      });
+      if (isSelfAnalysis) {
+        await computeImprovementPlans(whiteOpenings, {
+          playerColor: 'white',
+          ratingBucket,
+          speed: targetSpeed,
+          threshold: 0.08,
+          minCount: config.minExplorerCount,
+          onlyOpenings: processedWhite,
+        });
+      }
+    }
+
+    if (processedBlack.length) {
+      await annotateWithGmTheory(blackOpenings, {
+        playerColor: 'black',
+        config,
+        ratingBucket,
+        speed: targetSpeed,
+        isSelfAnalysis,
+        onlyOpenings: processedBlack,
+      });
+      if (isSelfAnalysis) {
+        await computeImprovementPlans(blackOpenings, {
+          playerColor: 'black',
+          ratingBucket,
+          speed: targetSpeed,
+          threshold: 0.08,
+          minCount: config.minExplorerCount,
+          onlyOpenings: processedBlack,
+        });
+      }
+    }
+
     displayOpenings(whiteOpenings, blackOpenings, state.mode);
     clearPendingLichessSelections();
     clearLichessCooldown();
