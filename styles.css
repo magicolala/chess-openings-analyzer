@@ -444,7 +444,10 @@ button:disabled {
 }
 
 .loading {
-  text-align: center;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
   padding: 24px;
   font-size: 18px;
   color: #4338ca;
@@ -453,6 +456,26 @@ button:disabled {
   border: 1px solid rgba(99, 102, 241, 0.2);
   box-shadow: 0 14px 30px rgba(79, 70, 229, 0.15);
 }
+
+.loading-spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid #c7d2fe;
+  border-top-color: #4338ca;
+  animation: loading-spin 0.8s linear infinite;
+}
+
+.loading-text {
+  font-weight: 600;
+}
+
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 
 .error {
   background: #fef2f2;

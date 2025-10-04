@@ -223,8 +223,15 @@ export default function App() {
           </button>
         </div>
 
-        <div id="loading" className="loading">
-          ⏳ Chargement des parties en cours...
+        <div
+          id="loading"
+          className="loading"
+          role="status"
+          aria-live="polite"
+          aria-busy="false"
+        >
+          <div className="loading-spinner" aria-hidden="true" />
+          <div className="loading-text">Chargement des parties en cours...</div>
         </div>
 
         <div id="error" className="error" />

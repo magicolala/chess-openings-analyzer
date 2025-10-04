@@ -1774,10 +1774,16 @@ function displayOpenings(whiteOpenings, blackOpenings, mode = state.mode) {
 }
 
 function showLoading() {
-  document.getElementById('loading').style.display = 'block';
+  const loadingEl = document.getElementById('loading');
+  if (!loadingEl) return;
+  loadingEl.style.display = 'flex';
+  loadingEl.setAttribute('aria-busy', 'true');
 }
 function hideLoading() {
-  document.getElementById('loading').style.display = 'none';
+  const loadingEl = document.getElementById('loading');
+  if (!loadingEl) return;
+  loadingEl.style.display = 'none';
+  loadingEl.setAttribute('aria-busy', 'false');
 }
 function showError(message) {
   const errorDiv = document.getElementById('error');
